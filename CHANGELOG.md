@@ -4,6 +4,27 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.3.0 — 2026-08-14
+
+**Breaking.** The `GITRAKZ_HTTP_ADDR` env var is removed — the container always
+listens on `:8080`. If you set it, drop it and publish the host port with
+`docker run -p <host-port>:8080` instead. Also toolifies the repository
+generator.
+
+- Remove the `GITRAKZ_HTTP_ADDR` knob. gitrakz ships as a Docker image, so the
+  address that matters is the host port you map with `-p`; the in-container bind
+  is now a fixed `:8080`, documented in the Dockerfile with `EXPOSE 8080`.
+  Bare-metal `go run ./cmd run` also binds `:8080`.
+- The repository generator is now a Go tool: `cmd/repogen` is registered in
+  `go.mod`'s `tool` block and invoked via `go tool repogen` from the
+  repositories `gen.go`, instead of `go run ../../../../cmd/repogen`. It builds
+  from the pinned, vendored toolchain like every other generator, with no
+  fragile relative path.
+- `make build` now targets `./cmd` instead of the framework default `./cmd/...`,
+  which broke once `cmd/repogen` was added as a second package main (`go build
+  -o` can't write multiple packages to one file). A `scripts/make/build.sh`
+  override — picked ahead of the framework copy — matches the release Dockerfile.
+
 ## v0.2.2 — 2026-08-14
 
 Build/CI. No code change.

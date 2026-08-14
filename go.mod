@@ -284,6 +284,7 @@ require (
 tool (
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 	github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
+	github.com/psyb0t/gitrakz/cmd/repogen
 	github.com/psyb0t/gofindimpl
 	golang.org/x/tools/cmd/goimports
 	golang.org/x/tools/gopls/internal/analysis/modernize/cmd/modernize

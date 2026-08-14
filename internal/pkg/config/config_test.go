@@ -15,7 +15,6 @@ func TestLoad_Defaults(t *testing.T) {
 	cfg, err := Load()
 	require.NoError(t, err)
 
-	assert.Equal(t, ":8080", cfg.HTTPAddr)
 	assert.Empty(t, cfg.AuthToken)
 	assert.Equal(t, "octocat", cfg.GHUser)
 	assert.Equal(t, "/data/gitrakz.db", cfg.DBPath)
@@ -30,7 +29,6 @@ func TestLoad_Defaults(t *testing.T) {
 }
 
 func TestLoad_Overrides(t *testing.T) {
-	t.Setenv("GITRAKZ_HTTP_ADDR", ":9090")
 	t.Setenv("GITRAKZ_AUTH_TOKEN", "secret-token")
 	t.Setenv("GITRAKZ_GH_USER", "psyb0t")
 	t.Setenv("GITRAKZ_DB_PATH", "/tmp/gitrakz-test.db")
@@ -46,7 +44,6 @@ func TestLoad_Overrides(t *testing.T) {
 	cfg, err := Load()
 	require.NoError(t, err)
 
-	assert.Equal(t, ":9090", cfg.HTTPAddr)
 	assert.Equal(t, "secret-token", cfg.AuthToken)
 	assert.Equal(t, "psyb0t", cfg.GHUser)
 	assert.Equal(t, "/tmp/gitrakz-test.db", cfg.DBPath)

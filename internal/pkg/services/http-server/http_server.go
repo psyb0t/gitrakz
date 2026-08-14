@@ -34,6 +34,11 @@ import (
 // convention (http-server -> package httpserver) per wiring-servicepack.md.
 const ServiceName = "http-server"
 
+// httpListenAddr is the fixed in-container bind address. gitrakz ships as a
+// Docker image, so the address that matters is the host port you publish with
+// `-p`; the container always listens on :8080 rather than exposing a knob.
+const httpListenAddr = ":8080"
+
 // Service implements servicemanager.Service. New wires every dependency
 // eagerly and fails fast; Run starts the HTTP server and the background
 // sync ticker and blocks until ctx is done; Stop tears both down.
@@ -182,7 +187,7 @@ func wire(cfg config.Config, store *db.Store) (*Service, error) {
 
 	router := newRouter(cfg.AuthToken, apiHandler, spaHandler)
 
-	srv, err := serbewr.NewWithConfig(serverConfig(cfg))
+	srv, err := serbewr.NewWithConfig(serverConfig())
 	if err != nil {
 		return nil, ctxerrors.Wrap(err, "new http server")
 	}
@@ -196,13 +201,13 @@ func wire(cfg config.Config, store *db.Store) (*Service, error) {
 	}, nil
 }
 
-// serverConfig builds serbewr's Config from cfg.HTTPAddr plus aichteeteapee's
-// own package defaults for everything else — gitrakz's listen address comes
-// from its own GITRAKZ_HTTP_ADDR env var, not serbewr's HTTP_SERVER_*
-// env vars, so this is built directly rather than via serbewr.New().
-func serverConfig(cfg config.Config) serbewr.Config {
+// serverConfig builds serbewr's Config from the fixed httpListenAddr plus
+// aichteeteapee's own package defaults for everything else — it's built
+// directly rather than via serbewr.New() so gitrakz's bind address isn't driven
+// by serbewr's HTTP_SERVER_* env vars.
+func serverConfig() serbewr.Config {
 	return serbewr.Config{
-		ListenAddress:       cfg.HTTPAddr,
+		ListenAddress:       httpListenAddr,
 		ReadTimeout:         aichteeteapee.DefaultHTTPServerReadTimeout,
 		ReadHeaderTimeout:   aichteeteapee.DefaultHTTPServerReadHeaderTimeout,
 		WriteTimeout:        aichteeteapee.DefaultHTTPServerWriteTimeout,
@@ -228,7 +233,7 @@ func (s *Service) Run(ctx context.Context) error {
 	logger.Info(
 		"starting service",
 		"service", ServiceName,
-		"addr", s.cfg.HTTPAddr,
+		"addr", httpListenAddr,
 	)
 
 	var wg sync.WaitGroup

@@ -11,7 +11,6 @@ import (
 
 // Config holds gitrakz's runtime configuration.
 type Config struct {
-	HTTPAddr  string `default:":8080"            env:"GITRAKZ_HTTP_ADDR"`
 	AuthToken string `env:"GITRAKZ_AUTH_TOKEN"`
 	GHUser    string `env:"GITRAKZ_GH_USER"`
 	DBPath    string `default:"/data/gitrakz.db" env:"GITRAKZ_DB_PATH"`

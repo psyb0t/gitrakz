@@ -88,7 +88,6 @@ All configuration is environment variables, prefixed `GITRAKZ_`. `GITRAKZ_GH_USE
 | Variable | Default | What it does |
 |---|---|---|
 | `GITRAKZ_GH_USER` | *(required)* | The GitHub user whose activity is tracked. |
-| `GITRAKZ_HTTP_ADDR` | `:8080` | Listen address for the HTTP server + embedded SPA. |
 | `GITRAKZ_AUTH_TOKEN` | *(empty)* | When set, `/api` requires `Authorization: Bearer <token>`. Empty = open (single-user / trusted network). |
 | `GITRAKZ_DB_PATH` | `/data/gitrakz.db` | SQLite file. Migrations run on boot. |
 | `GITRAKZ_SYNC_SINCE` | `2025-01-01` | Earliest activity to pull on a first sync. |

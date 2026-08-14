@@ -55,6 +55,10 @@ RUN chown appuser:appuser /app/app
 # Switch to non-root user
 USER appuser
 
+# gitrakz always listens on :8080 inside the container; publish it on the host
+# with `docker run -p <host-port>:8080`.
+EXPOSE 8080
+
 # Set entrypoint to the app binary
 ENTRYPOINT ["./app"]
 
