@@ -21,6 +21,12 @@ var (
 )
 
 func main() {
+	// Stamp the build commit onto the default logger once at startup, guarded
+	// on non-empty, so every log line carries the exact build that emitted it.
+	if buildCommit != "" {
+		slog.SetDefault(slog.Default().With("commit", buildCommit))
+	}
+
 	services.Init()
 
 	rootCmd := buildRootCommand()

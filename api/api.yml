@@ -1,0 +1,736 @@
+openapi: 3.1.0
+info:
+  title: gitrakz API
+  description: >-
+    Self-hosted GitHub activity tracker. Timeline of commits/PRs/reviews/
+    issues/releases pulled from `gh`, derived work sessions, and a
+    building-blocks template engine that turns any filtered range into a
+    typed, exportable document (timesheet, standup, changelog, brag doc,
+    client report, or anything composed from the transform + display
+    building-block libraries).
+  version: 1.0.0
+servers:
+  - url: /v1
+    description: gitrakz API v1
+tags:
+  - name: owners
+    description: Distinct owners/orgs discovered from ingested activity
+  - name: repos
+    description: Repos ingested under an owner
+  - name: timeline
+    description: Paginated, filterable event timeline
+  - name: sessions
+    description: Derived work-session view over the timeline
+  - name: sync
+    description: Incremental `gh` sync of activity into the local cache
+  - name: templates
+    description: CRUD + LLM authoring for building-block templates
+  - name: run
+    description: Deterministic transform-pipeline execution
+  - name: export
+    description: Raw or templated document export
+paths:
+  /api/owners:
+    get:
+      operationId: listOwners
+      summary: List distinct owners/orgs
+      description: >-
+        Returns every distinct owner/org present in the local event cache,
+        for the filter dropdown.
+      tags:
+        - owners
+      responses:
+        "200":
+          description: Distinct owners/orgs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/repos:
+    get:
+      operationId: listRepos
+      summary: List repos under an owner
+      tags:
+        - repos
+      parameters:
+        - $ref: "#/components/parameters/OwnerQueryParamRequired"
+      responses:
+        "200":
+          description: Repos under the given owner.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/timeline:
+    get:
+      operationId: listTimeline
+      summary: Paginated, filterable event timeline
+      tags:
+        - timeline
+      parameters:
+        - $ref: "#/components/parameters/OwnerQueryParam"
+        - $ref: "#/components/parameters/RepoQueryParam"
+        - $ref: "#/components/parameters/EventTypeQueryParam"
+        - $ref: "#/components/parameters/FromQueryParam"
+        - $ref: "#/components/parameters/ToQueryParam"
+        - $ref: "#/components/parameters/PageQueryParam"
+        - $ref: "#/components/parameters/PerPageQueryParam"
+      responses:
+        "200":
+          description: A page of timeline events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimelinePage"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/sessions:
+    get:
+      operationId: listSessions
+      summary: Derived, sessionized view of the timeline
+      tags:
+        - sessions
+      parameters:
+        - $ref: "#/components/parameters/OwnerQueryParam"
+        - $ref: "#/components/parameters/FromQueryParam"
+        - $ref: "#/components/parameters/ToQueryParam"
+        - $ref: "#/components/parameters/GapQueryParam"
+      responses:
+        "200":
+          description: Sessionized events with heuristic hours per day/project.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionsResponse"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/sync:
+    post:
+      operationId: triggerSync
+      summary: Trigger an incremental sync of activity from `gh`
+      tags:
+        - sync
+      responses:
+        "202":
+          description: Sync accepted; runs in the background.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncJob"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/sync/status:
+    get:
+      operationId: getSyncStatus
+      summary: Current sync status
+      tags:
+        - sync
+      responses:
+        "200":
+          description: Last sync timestamp, in-progress flag, per-owner counts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncStatus"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/templates:
+    get:
+      operationId: listTemplates
+      summary: List templates (built-in + custom)
+      tags:
+        - templates
+      responses:
+        "200":
+          description: All templates.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Template"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createTemplate
+      summary: Create a custom template
+      tags:
+        - templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateInput"
+      responses:
+        "200":
+          description: The created template.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Template"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/templates/{id}:
+    put:
+      operationId: updateTemplate
+      summary: Edit a template
+      description: >-
+        Built-in templates clone-on-edit into a new custom copy rather than
+        mutating the built-in in place.
+      tags:
+        - templates
+      parameters:
+        - $ref: "#/components/parameters/TemplateIdPathParam"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateInput"
+      responses:
+        "200":
+          description: The updated (or cloned) template.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Template"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteTemplate
+      summary: Delete a custom template
+      description: Built-in templates are not deletable.
+      tags:
+        - templates
+      parameters:
+        - $ref: "#/components/parameters/TemplateIdPathParam"
+      responses:
+        "204":
+          description: Template deleted.
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/templates/generate:
+    post:
+      operationId: generateTemplate
+      summary: LLM-compose a template draft from a description
+      description: >-
+        Uses `elelem` structured output to compose a template spec (form +
+        transform + layout) from the fixed transform/display building-block
+        libraries only. Returns a draft to review/edit/save; nothing is
+        persisted by this call.
+      tags:
+        - templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateTemplateRequest"
+      responses:
+        "200":
+          description: The generated template draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Template"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/run:
+    post:
+      operationId: runTemplate
+      summary: Run a template's transform pipeline over a filtered range
+      description: >-
+        Runs the deterministic transform pipeline and returns the resulting
+        typed-block document. Streams via SSE (`essessey` frames) only when
+        the template's layout includes an LLM-backed prose block; otherwise
+        the same call returns the plain JSON document.
+      tags:
+        - run
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunRequest"
+      responses:
+        "200":
+          description: >-
+            The rendered document, either streamed as SSE or returned as
+            plain JSON depending on whether the template's layout has an
+            LLM-backed block.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: >-
+                  Stream of `essessey` SSE frames terminating in the final
+                  Document.
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /api/export:
+    post:
+      operationId: exportDocument
+      summary: Export a document (or a template run) to a file
+      tags:
+        - export
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "200":
+          description: The exported file.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: "#/components/responses/Error"
+
+components:
+  parameters:
+    OwnerQueryParam:
+      name: owner
+      in: query
+      required: false
+      description: Filter by owner/org.
+      schema:
+        type: string
+    OwnerQueryParamRequired:
+      name: owner
+      in: query
+      required: true
+      description: Owner/org to list repos for.
+      schema:
+        type: string
+    RepoQueryParam:
+      name: repo
+      in: query
+      required: false
+      description: Filter by repo.
+      schema:
+        type: string
+    EventTypeQueryParam:
+      name: type
+      in: query
+      required: false
+      description: Filter by event type.
+      schema:
+        $ref: "#/components/schemas/EventType"
+    FromQueryParam:
+      name: from
+      in: query
+      required: false
+      description: Range start, unix seconds (inclusive).
+      schema:
+        type: integer
+        format: int64
+    ToQueryParam:
+      name: to
+      in: query
+      required: false
+      description: Range end, unix seconds (exclusive).
+      schema:
+        type: integer
+        format: int64
+    PageQueryParam:
+      name: page
+      in: query
+      required: false
+      description: 1-indexed page number.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PerPageQueryParam:
+      name: per_page
+      in: query
+      required: false
+      description: Page size.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    GapQueryParam:
+      name: gap
+      in: query
+      required: false
+      description: >-
+        Inter-event gap threshold, in seconds, overriding
+        GITRAKZ_SESSION_GAP for this request's sessionization.
+      schema:
+        type: integer
+        format: int64
+    TemplateIdPathParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Error:
+      description: An error occurred.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    EventType:
+      type: string
+      enum:
+        - commit
+        - pr
+        - review
+        - issue
+        - release
+
+    Event:
+      type: object
+      description: A single ingested activity event.
+      required:
+        - id
+        - ts
+        - type
+        - owner
+        - repo
+      properties:
+        id:
+          type: string
+          description: 'Stable id: "{type}:{owner}/{repo}:{sha|number}".'
+        ts:
+          type: integer
+          format: int64
+          description: Unix seconds.
+        type:
+          $ref: "#/components/schemas/EventType"
+        owner:
+          type: string
+        repo:
+          type: string
+        sha:
+          type:
+            - string
+            - "null"
+        number:
+          type:
+            - integer
+            - "null"
+          description: PR/issue number.
+        title:
+          type:
+            - string
+            - "null"
+          description: Commit subject / PR title.
+        url:
+          type:
+            - string
+            - "null"
+          format: uri
+        additions:
+          type:
+            - integer
+            - "null"
+        deletions:
+          type:
+            - integer
+            - "null"
+        branch:
+          type:
+            - string
+            - "null"
+
+    TimelinePage:
+      type: object
+      required:
+        - items
+        - hasMore
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        hasMore:
+          type: boolean
+
+    Session:
+      type: object
+      description: >-
+        A derived cluster of events (per owner) whose inter-event gaps are
+        all under the sessionization threshold.
+      required:
+        - owner
+        - startTs
+        - endTs
+        - durationHours
+        - events
+      properties:
+        owner:
+          type: string
+        day:
+          type: string
+          format: date
+          description: Owner-local calendar day this session is grouped under.
+        startTs:
+          type: integer
+          format: int64
+        endTs:
+          type: integer
+          format: int64
+        durationHours:
+          type: number
+          format: double
+          description: '(endTs - startTs) + lead-in padding, in hours.'
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+
+    SessionsResponse:
+      type: object
+      required:
+        - sessions
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Session"
+
+    SyncJob:
+      type: object
+      required:
+        - jobId
+      properties:
+        jobId:
+          type: string
+
+    SyncStatus:
+      type: object
+      required:
+        - lastSyncedTs
+        - inProgress
+        - perOwner
+      properties:
+        lastSyncedTs:
+          type: integer
+          format: int64
+          description: Unix seconds of the most recent completed sync.
+        inProgress:
+          type: boolean
+        perOwner:
+          type: object
+          description: Per-owner sync counts/state, keyed by owner name.
+          additionalProperties: true
+
+    Block:
+      type: object
+      description: One display building block.
+      required:
+        - type
+        - data
+      properties:
+        type:
+          type: string
+          description: >-
+            heading | text | list | table | keyvalue | metric | code |
+            chart.
+        data:
+          type: object
+          description: Block-type-specific payload.
+
+    Document:
+      type: array
+      description: An ordered list of display blocks.
+      items:
+        $ref: "#/components/schemas/Block"
+
+    ExportFormat:
+      type: string
+      enum:
+        - csv
+        - pdf
+        - json
+
+    FormField:
+      type: object
+      description: One input field a template's form collects on run.
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        label:
+          type:
+            - string
+            - "null"
+        type:
+          type: string
+          description: Form field kind, e.g. string, number, boolean, date, select.
+        required:
+          type: boolean
+          default: false
+        default:
+          description: Default value, if any. Shape matches `type`.
+
+    TransformStep:
+      type: object
+      description: One step of a template's transform pipeline.
+      required:
+        - primitive
+      properties:
+        primitive:
+          type: string
+          description: >-
+            sessionize | exclude-off-time | split-by-active-days |
+            aggregate | group-by | rate | describe-work | passthrough.
+        params:
+          type: object
+          description: Primitive-specific parameters.
+
+    TemplateInput:
+      type: object
+      description: Template fields a client submits on create/edit (no id).
+      required:
+        - name
+        - form
+        - transform
+        - layout
+        - exports
+      properties:
+        name:
+          type: string
+        description:
+          type:
+            - string
+            - "null"
+        form:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormField"
+        transform:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransformStep"
+        layout:
+          type: array
+          items:
+            $ref: "#/components/schemas/Block"
+        exports:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExportFormat"
+        model:
+          type:
+            - string
+            - "null"
+          description: Only meaningful when the layout has an LLM-backed block.
+
+    Template:
+      allOf:
+        - $ref: "#/components/schemas/TemplateInput"
+        - type: object
+          required:
+            - id
+          properties:
+            id:
+              type: string
+
+    GenerateTemplateRequest:
+      type: object
+      required:
+        - prompt
+      properties:
+        prompt:
+          type: string
+
+    Filter:
+      type: object
+      description: Timeline filter selecting the range/scope to operate on.
+      properties:
+        owner:
+          type: string
+        repo:
+          type: string
+        type:
+          $ref: "#/components/schemas/EventType"
+        from:
+          type: integer
+          format: int64
+        to:
+          type: integer
+          format: int64
+
+    RunRequest:
+      type: object
+      required:
+        - templateId
+      properties:
+        templateId:
+          type: string
+        filter:
+          $ref: "#/components/schemas/Filter"
+        formValues:
+          type: object
+          description: Values keyed by the template's form field names.
+          additionalProperties: true
+
+    ExportRequest:
+      type: object
+      required:
+        - format
+      properties:
+        document:
+          $ref: "#/components/schemas/Document"
+        templateId:
+          type: string
+        filter:
+          $ref: "#/components/schemas/Filter"
+        formValues:
+          type: object
+          additionalProperties: true
+        format:
+          $ref: "#/components/schemas/ExportFormat"
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code, UPPER_SNAKE_CASE.
+        message:
+          type: string
+        details:
+          type:
+            - object
+            - "null"

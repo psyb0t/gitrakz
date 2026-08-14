@@ -4,14 +4,14 @@ package services
 
 import (
 	servicemanager "github.com/psyb0t/gitrakz/internal/pkg/service-manager"
-	helloworld "github.com/psyb0t/gitrakz/internal/pkg/services/hello-world"
+	httpserver "github.com/psyb0t/gitrakz/internal/pkg/services/http-server"
 )
 
 func Init() {
 	sm := servicemanager.GetInstance()
 
-	sm.Register(helloworld.ServiceName, func() (servicemanager.Service, error) {
-		return helloworld.New()
+	sm.Register(httpserver.ServiceName, func() (servicemanager.Service, error) {
+		return httpserver.New()
 	})
 
 }

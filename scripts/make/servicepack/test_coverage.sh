@@ -22,8 +22,10 @@ if ! go test -race -coverprofile=coverage.txt "${packages[@]}"; then
     exit 1
 fi
 
-# Filter out mocks.go from coverage and calculate coverage
-grep -v 'github.com/psyb0t/servicepack/internal/pkg/service-manager/mocks.go:' coverage.txt > coverage_filtered.txt || cp coverage.txt coverage_filtered.txt
+# Filter out mocks.go AND generated code (*.gen.go — oapi-codegen + gorm-gen
+# output; you don't unit-test generated code) from coverage, then calculate.
+grep -v 'github.com/psyb0t/servicepack/internal/pkg/service-manager/mocks.go:' coverage.txt \
+    | grep -v '\.gen\.go:' > coverage_filtered.txt || cp coverage.txt coverage_filtered.txt
 result=$(go tool cover -func=coverage_filtered.txt | grep -oP 'total:\s+\(statements\)\s+\K\d+' || echo "0")
 
 # Persist the decimal percentage for the badge pipeline (survives the trap above).

@@ -48,3 +48,10 @@ __debug_*
 .research_files
 scripts/.post-update-temp
 __pycache__
+
+.plan-and-delegate/
+
+# Frontend (web/) — installed deps never belong in a build context; the
+# embedded SPA the Go build actually needs is the already-built dist/ under
+# internal/pkg/services/http-server/, not web/ itself.
+web/node_modules

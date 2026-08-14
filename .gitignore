@@ -20,3 +20,13 @@ coverage-percent.txt
 .anustimes/
 .brutal_reviews/
 .rule_audits/
+
+# plan-and-delegate scaffolding — never commit
+.plan-and-delegate/
+
+# Frontend (web/) — installed deps + local vite state, never committed. The
+# built dist/ that spa.go embeds lives under internal/pkg/services/http-server/
+# and IS committed (it's what ships in the binary), so it's not covered here.
+web/node_modules
+web/.vite
+.wave6/

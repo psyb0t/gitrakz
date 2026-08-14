@@ -144,7 +144,7 @@ func (s *ServiceManager) RegisteredNames() []string {
 // Instantiate creates a single service by calling its factory.
 // Used for Commander commands that need only one service.
 //
-//nolint:ireturn
+
 func (s *ServiceManager) Instantiate(
 	name string,
 ) (Service, error) {

@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"github.com/psyb0t/ctxerrors"
-	"github.com/psyb0t/goenv"
 	servicemanager "github.com/psyb0t/gitrakz/internal/pkg/service-manager"
+	"github.com/psyb0t/goenv"
 )
 
 var (
