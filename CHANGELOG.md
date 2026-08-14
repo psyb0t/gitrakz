@@ -4,6 +4,14 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.4.1 — 2026-08-14
+
+Docs: sync `.env.example` with the config changes from v0.3.0 and v0.4.0.
+
+- Drop the removed `GITRAKZ_HTTP_ADDR` entry (the container listens on a fixed
+  `:8080`; publish the host port with `-p`), and mark `GITRAKZ_GH_USER` optional
+  (defaults to the `gh` CLI's authenticated login).
+
 ## v0.4.0 — 2026-08-14
 
 `GITRAKZ_GH_USER` is now optional — with an authenticated `gh` CLI, gitrakz
