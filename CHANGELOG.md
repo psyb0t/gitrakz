@@ -4,6 +4,14 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.2.1 — 2026-08-14
+
+- Replace the hand-rolled bearer-auth middleware with
+  `aichteeteapee/serbewr/middleware.BearerAuth` (added upstream in aichteeteapee
+  v1.12.0). Behavior is unchanged: with `GITRAKZ_AUTH_TOKEN` set, `/api/v1`
+  requires `Authorization: Bearer <token>` (constant-time compared) and answers
+  the JSON error envelope on failure.
+
 ## v0.2.0 — 2026-08-14
 
 - **Breaking (API):** REST endpoints are now versioned under `/api/v1` (e.g.

@@ -36,7 +36,12 @@ func newRouter(
 ) *serbewr.Router {
 	var apiMiddlewares []middleware.Middleware
 	if authToken != "" {
-		apiMiddlewares = append(apiMiddlewares, bearerAuth(authToken))
+		apiMiddlewares = append(
+			apiMiddlewares,
+			middleware.BearerAuth(
+				middleware.WithBearerAuthTokens(authToken),
+			),
+		)
 	}
 
 	return &serbewr.Router{

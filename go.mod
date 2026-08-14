@@ -8,7 +8,7 @@ require (
 	github.com/johnfercher/maroto/v2 v2.4.0
 	github.com/ncruces/go-sqlite3/gormlite v0.34.0
 	github.com/oapi-codegen/runtime v1.6.0
-	github.com/psyb0t/aichteeteapee v1.11.1
+	github.com/psyb0t/aichteeteapee v1.12.0
 	github.com/psyb0t/commander v0.5.8
 	github.com/psyb0t/common-go v0.7.1
 	github.com/psyb0t/ctxerrors v0.7.1
