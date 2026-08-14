@@ -4,6 +4,30 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.5.0 — 2026-08-14
+
+A one-command installer, a Docker Compose stack, and an agent skill.
+
+- **Installer.** `curl -fsSL .../install.sh | sudo bash` installs the GitHub CLI
+  if it is missing, pins the local stack to the latest release tag (never
+  `:latest` on your machine), writes `~/.gitrakz/docker-compose.yml` + an
+  owner-only `.env`, and installs a `gitrakz` command with `setup / start / stop
+  / status / logs / upgrade / uninstall`. `start` injects a GitHub token from
+  `gh auth token` — never written to disk. `upgrade` re-pins to the latest
+  release and drops the previous image; `--rolling` uses the moving `:latest`
+  for one run only. `uninstall` asks before deleting your data.
+- **The image now includes the GitHub CLI and owns `/data`.** gitrakz shells out
+  to `gh`, so the published image could not actually sync before; and a fresh
+  named volume is now writable by the non-root user. Auth is via the `GH_TOKEN`
+  env var, not a mounted `~/.config/gh`.
+- **docker-compose.yml** for a hardened single-service stack — non-root,
+  `cap_drop: [ALL]`, `no-new-privileges`, resource limits, healthcheck, log
+  caps — with a configurable publish address/port.
+- **Agent skill** under `.agents/` documenting setup and the `/api/v1` REST
+  surface, published to ClawHub on release.
+- README: an install-first quickstart, a direct-Docker path, and an agent
+  integrations section.
+
 ## v0.4.1 — 2026-08-14
 
 Docs: sync `.env.example` with the config changes from v0.3.0 and v0.4.0.

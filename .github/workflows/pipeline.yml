@@ -43,3 +43,12 @@ jobs:
     secrets:
       dockerhub_username: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerhub_token: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  # Publish the agent skill under .agents/ to ClawHub on tag pushes, after the
+  # release image is out.
+  publish-to-clawhub:
+    needs: [publish-image]
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: psyb0t/reusable-github-workflows/.github/workflows/clawhub-publish.yml@master
+    secrets:
+      clawhub_token: ${{ secrets.CLAWHUB_TOKEN }}

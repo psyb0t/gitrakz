@@ -1,0 +1,22 @@
+{
+  "name": "gitrakz",
+  "version": "0.5.0",
+  "description": "Drive a self-hosted gitrakz instance: sync a GitHub user's activity into local SQLite, query the filterable timeline and derived work sessions, and run deterministic programmatic templates that export to CSV/PDF/JSON — over its bearer-protected /api/v1 REST API.",
+  "author": {
+    "name": "psyb0t",
+    "url": "https://github.com/psyb0t"
+  },
+  "homepage": "https://github.com/psyb0t/gitrakz",
+  "repository": "https://github.com/psyb0t/gitrakz",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "activity",
+    "timeline",
+    "timesheet",
+    "self-hosted",
+    "docker",
+    "sqlite"
+  ],
+  "skills": "./skills/"
+}

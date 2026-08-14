@@ -1,0 +1,34 @@
+{
+  "name": "gitrakz",
+  "description": "Drive a self-hosted gitrakz instance: sync a GitHub user's activity into local SQLite, query the filterable timeline and derived work sessions, and run deterministic programmatic templates that export to CSV/PDF/JSON — over its bearer-protected /api/v1 REST API.",
+  "author": {
+    "name": "psyb0t",
+    "url": "https://github.com/psyb0t"
+  },
+  "homepage": "https://github.com/psyb0t/gitrakz",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "activity",
+    "timeline",
+    "timesheet",
+    "self-hosted",
+    "docker",
+    "sqlite"
+  ],
+  "userConfig": {
+    "gitrakz_url": {
+      "type": "string",
+      "title": "gitrakz URL",
+      "description": "Base URL of a gitrakz instance you run, for example http://127.0.0.1:8080.",
+      "required": true
+    },
+    "gitrakz_auth_token": {
+      "type": "string",
+      "title": "gitrakz API token",
+      "description": "Bearer token for /api when GITRAKZ_AUTH_TOKEN is set on the server. Leave empty if the API is open.",
+      "required": false,
+      "sensitive": true
+    }
+  }
+}

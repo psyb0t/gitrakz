@@ -1,0 +1,49 @@
+# gitrakz — local stack. The `gitrakz` wrapper (install.sh) drives this, but it
+# is a plain Compose file you can run directly. GH_TOKEN is NOT stored here or in
+# .env — it is injected at runtime; the wrapper captures it with `gh auth token`,
+# and a direct run expects it in the environment (see README "Run it yourself").
+services:
+  gitrakz:
+    image: ${GITRAKZ_IMAGE:-psyb0t/gitrakz:latest}
+    command: ["run"]
+    env_file:
+      - .env
+    environment:
+      # GitHub auth. Injected live, never persisted. The wrapper exports it from
+      # `gh auth token`; for a direct run: export GH_TOKEN="$(gh auth token)".
+      GH_TOKEN: ${GH_TOKEN:?set GH_TOKEN — e.g. export GH_TOKEN="$(gh auth token)"}
+      # The DB lives on the named volume mounted at /data, regardless of .env.
+      GITRAKZ_DB_PATH: /data/gitrakz.db
+    ports:
+      # Loopback-bound by default — put a reverse proxy / tailnet in front to
+      # expose it. Override GITRAKZ_PUBLISH_ADDR to change the host binding.
+      - "${GITRAKZ_PUBLISH_ADDR:-127.0.0.1}:${GITRAKZ_PUBLISH_PORT:-8080}:8080"
+    volumes:
+      - gitrakz-data:/data
+    restart: unless-stopped
+    init: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      # The embedded SPA at / needs no auth token; a 200 means the server is up.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+          pids: 256
+
+volumes:
+  gitrakz-data:

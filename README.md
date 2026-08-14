@@ -22,6 +22,7 @@ A template is not a saved prompt — it is a saved **composition**: a form, a tr
 - [Configuration](#configuration)
 - [Building blocks and templates](#building-blocks-and-templates)
 - [HTTP API](#http-api)
+- [Agent integrations](#agent-integrations)
 - [Development](#development)
 - [Security notes](#security-notes)
 - [License](#license)
@@ -50,18 +51,64 @@ gh CLI ──sync──▶ SQLite (events) ──▶ timeline / sessions
 
 ## Quickstart
 
-### Docker
+### Install (recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/psyb0t/gitrakz/main/install.sh | sudo bash
+```
+
+That installs the GitHub CLI if it is missing, pins the local stack to the
+latest release tag (never `:latest` on your machine), drops `docker-compose.yml`
+and an owner-only `.env` into `~/.gitrakz`, and installs the `gitrakz` command.
+No source checkout required.
+
+Authenticate GitHub once — the wrapper reads a token from it — then start it. It
+tracks *your own* activity by default:
+
+```bash
+gh auth login
+gitrakz start
+```
+
+Open <http://127.0.0.1:8080>. The rest is deliberately boring:
+
+```bash
+gitrakz status
+gitrakz logs -f
+gitrakz stop
+gitrakz upgrade          # re-pin to the latest release, pull it, drop the old image
+gitrakz upgrade --rolling # test the moving :latest built from main, just this once
+gitrakz uninstall        # remove the command; asks before deleting your data
+```
+
+Configuration lives in `~/.gitrakz/.env` — **edit it right after install** to
+change the published port (`GITRAKZ_PUBLISH_PORT`), expose it beyond localhost
+(`GITRAKZ_PUBLISH_ADDR`), set an API bearer token (`GITRAKZ_AUTH_TOKEN`), track a
+different user (`GITRAKZ_GH_USER`), or enable the optional LLM features
+(`GITRAKZ_ELELEM_*`). `gitrakz start` picks the changes up. The GitHub token is
+never written to `.env`; the wrapper injects it at runtime from `gh auth token`.
+
+### Run it with Docker directly
+
+The wrapper is only a guardrail around Docker. To drive it yourself, pass the
+token straight through — that is the only auth gitrakz needs (it runs `gh` inside
+the container with it):
 
 ```bash
 docker run --rm -p 8080:8080 \
-  -e GITRAKZ_GH_USER=your-github-username \
-  -e GITRAKZ_DB_PATH=/data/gitrakz.db \
+  -e GH_TOKEN="$(gh auth token)" \
   -v gitrakz-data:/data \
-  -v "$HOME/.config/gh:/root/.config/gh:ro" \
-  psyb0t/gitrakz:latest
+  psyb0t/gitrakz:latest run
 ```
 
-Then open <http://localhost:8080>. `gitrakz` uses the mounted `gh` credentials to sync; trigger one from the UI ("Sync now") or wait for the background ticker.
+Add any `-e GITRAKZ_*` from the [Configuration](#configuration) table. Or run the
+same pinned stack straight from the compose file the installer wrote:
+
+```bash
+export GH_TOKEN="$(gh auth token)"
+docker compose --project-directory ~/.gitrakz \
+  --env-file ~/.gitrakz/.env -f ~/.gitrakz/docker-compose.yml up -d
+```
 
 ### From source
 
@@ -69,17 +116,18 @@ Then open <http://localhost:8080>. `gitrakz` uses the mounted `gh` credentials t
 git clone https://github.com/psyb0t/gitrakz
 cd gitrakz
 make build                          # static binary in ./build (via Docker)
-GITRAKZ_GH_USER=your-username ./build/gitrakz run
+GH_TOKEN="$(gh auth token)" ./build/gitrakz run
 ```
 
 Local dev without Docker:
 
 ```bash
 cd web && pnpm install && pnpm build && cd ..   # build the embedded SPA
-GITRAKZ_GH_USER=your-username go run ./cmd run
+GH_TOKEN="$(gh auth token)" go run ./cmd run
 ```
 
-`gh` must be installed and authenticated (`gh auth login`) wherever the binary runs.
+`gh` must be installed and authenticated (`gh auth login`) wherever the binary
+runs — gitrakz shells out to it, using `GH_TOKEN` for auth.
 
 ## Configuration
 
@@ -141,6 +189,44 @@ POST /api/v1/export              # export a document / run to csv|pdf|json
 ```
 
 The OpenAPI spec at `api/api.yml` is the source of truth; the server interface and types are generated from it.
+
+## Agent integrations
+
+This repo ships a documentation skill for agents that drive a gitrakz instance:
+setup (installer or Docker), the `/api/v1` REST surface, and the `GH_TOKEN` auth
+model. It does **not** pretend gitrakz is an MCP server — gitrakz exposes a REST
+API, not an MCP endpoint.
+
+### Claude Code
+
+```bash
+claude plugin marketplace add psyb0t/agents
+claude plugin install gitrakz@psyb0t
+```
+
+Claude Code asks for the gitrakz URL (and an optional bearer token) when the
+plugin is enabled; the token is stored as sensitive user configuration.
+
+### Codex
+
+```bash
+codex plugin marketplace add psyb0t/agents
+codex plugin add gitrakz@psyb0t
+```
+
+Inside this repository, use `$gitrakz`. After marketplace installation, use
+`$gitrakz:gitrakz`.
+
+### OpenClaw
+
+The same skill is published to ClawHub on tagged releases:
+
+```bash
+openclaw skills install @psyb0t/gitrakz
+```
+
+The detailed setup reference is
+[.agents/skills/gitrakz/references/setup.md](.agents/skills/gitrakz/references/setup.md).
 
 ## Development
 

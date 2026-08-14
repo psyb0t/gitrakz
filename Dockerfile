@@ -37,11 +37,18 @@ RUN APP_NAME="$(head -n 1 go.mod | awk '{print $2}' | awk -F'/' '{print $NF}')" 
 # silently picks them up. Bump this deliberately.
 FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
-# Install ca-certificates for HTTPS requests
-RUN apk --no-cache add ca-certificates
+# ca-certificates for HTTPS; github-cli because gitrakz shells out to `gh` at
+# runtime (it authenticates via the GH_TOKEN env var — no interactive login).
+RUN apk --no-cache add ca-certificates github-cli
 
 # Create non-root user
 RUN adduser -D -s /bin/sh appuser
+
+# The DB lives on a volume mounted at /data. Own it as appuser so a FRESH named
+# volume initializes writable for the non-root user — Docker copies this dir's
+# ownership into an empty volume on first mount.
+RUN mkdir -p /data && chown appuser:appuser /data
+VOLUME /data
 
 # Set working directory
 WORKDIR /app
