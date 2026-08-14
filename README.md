@@ -149,6 +149,7 @@ The OpenAPI spec at `api/api.yml` is the source of truth; the server interface a
 make lint            # golangci-lint (80+ linters) + go fix diff
 make test            # go test -race ./...
 make test-coverage   # 90% gate (excludes generated code, /cmd and services)
+make generate        # regenerate the OpenAPI server + gorm repos (go generate ./...)
 make build           # static binary via Docker
 make run-dev         # run in the dev container
 ```
