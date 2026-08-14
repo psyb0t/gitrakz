@@ -2,9 +2,16 @@
 
 set -euo pipefail
 
-# Source common functions
+# gitrakz override of the framework's test_coverage.sh. The Makefile's
+# find_script picks scripts/make/<name> ahead of scripts/make/servicepack/<name>,
+# so this file wins. It is the framework script verbatim EXCEPT the coverage
+# filter also drops *.gen.go: gitrakz commits oapi-codegen + gorm-gen output the
+# vanilla framework has no concept of, and generated code must not count toward
+# the coverage floor. Keep in step with the framework script on updates.
+
+# Source common functions from the framework script dir alongside this override.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/common.sh"
+source "$SCRIPT_DIR/servicepack/common.sh"
 
 MIN_TEST_COVERAGE=${MIN_TEST_COVERAGE:-90}
 
@@ -14,7 +21,6 @@ info "Running tests with coverage analysis..."
 # Ensure cleanup on exit
 trap 'rm -f coverage.txt coverage_filtered.txt' EXIT
 
-# Run tests with coverage
 # Run tests with coverage - need to use array for proper word splitting
 readarray -t packages < <(go list ./... | grep -v /cmd | grep -v '/internal/pkg/services$' | grep -v /internal/pkg/services/)
 if ! go test -race -coverprofile=coverage.txt "${packages[@]}"; then
@@ -22,9 +28,10 @@ if ! go test -race -coverprofile=coverage.txt "${packages[@]}"; then
 	exit 1
 fi
 
-# Filter generated test doubles from the aggregate while keeping ordinary test
-# files in scope. awk is available in the Alpine dev image; GNU grep -P is not.
-awk '!/internal\/pkg\/service-manager\/mocks\.go:/' coverage.txt \
+# Filter generated test doubles AND generated code (*.gen.go) from the aggregate
+# while keeping ordinary test files in scope. awk is available in the Alpine dev
+# image; GNU grep -P is not.
+awk '!/internal\/pkg\/service-manager\/mocks\.go:/ && !/\.gen\.go:/' coverage.txt \
 	>coverage_filtered.txt
 
 coverage_summary=$(go tool cover -func=coverage_filtered.txt | awk '$1 == "total:" { print $3 }')

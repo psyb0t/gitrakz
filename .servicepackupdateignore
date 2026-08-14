@@ -20,6 +20,13 @@
 cmd/init.go
 cmd/commands.go
 
+# gitrakz customizes .golangci.yml: ireturn.allow for its factory interfaces
+# (Service registry, GHClient seam, maroto core.Row, oapi ResponseObject), a
+# depguard allowlist (sqlite, maroto, gorm), and a revive package-name
+# exception for the generated http/api + common dirs. The framework owns and
+# overwrites .golangci.yml by default, so opt out to keep those.
+.golangci.yml
+
 # Dependabot config - your own dependency policy (which deps, the cooldown
 # window, the own-package excludes). Ignored by default so a framework update
 # never clobbers your tweaks. Delete this line if you'd rather the framework
