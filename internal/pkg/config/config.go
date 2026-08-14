@@ -26,17 +26,14 @@ type Config struct {
 	ElelemAPIKey  string `env:"GITRAKZ_ELELEM_API_KEY"`
 }
 
-// Load parses Config from the environment and fails fast if GHUser
-// is empty — gitrakz has no target GitHub user to track without it.
+// Load parses Config from the environment. GHUser is optional: when it's
+// empty the sync engine defaults to the gh CLI's authenticated login (see
+// ghsync.Syncer), so tracking yourself needs no configuration at all.
 func Load() (Config, error) {
 	cfg := Config{}
 
 	if err := gonfiguration.Parse(&cfg); err != nil {
 		return Config{}, ctxerrors.Wrap(err, "parse config")
-	}
-
-	if cfg.GHUser == "" {
-		return Config{}, ctxerrors.Wrap(ErrGHUserRequired, "load config")
 	}
 
 	return cfg, nil

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/ctxerrors/commerr"
 	"github.com/psyb0t/gitrakz/internal/pkg/common/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,6 +16,7 @@ import (
 // exact behavior it needs via the two func fields instead of pulling in a
 // generated mock.
 type mockGHClient struct {
+	authUserFn func(ctx context.Context) (string, error)
 	discoverFn func(ctx context.Context, user string) ([]RepoRef, error)
 	listFn     func(
 		ctx context.Context,
@@ -22,6 +24,10 @@ type mockGHClient struct {
 		user string,
 		since int64,
 	) ([]types.Event, error)
+}
+
+func (m *mockGHClient) AuthenticatedUser(ctx context.Context) (string, error) {
+	return m.authUserFn(ctx)
 }
 
 func (m *mockGHClient) DiscoverRepos(
@@ -183,6 +189,62 @@ func TestSyncer_Sync_DiscoversUpsertsAndUpdatesState(t *testing.T) {
 
 	keyB := stateKey(repoB.Owner, repoB.Repo)
 	assert.Equal(t, int64(300), store.syncStateUpdates[keyB])
+}
+
+func TestSyncer_Sync_DefaultsToAuthenticatedUser(t *testing.T) {
+	t.Parallel()
+
+	const authedUser = "octocat"
+
+	repo := RepoRef{Owner: "octocat", Repo: "aaa"}
+
+	gh := &mockGHClient{
+		authUserFn: func(_ context.Context) (string, error) {
+			return authedUser, nil
+		},
+		discoverFn: func(_ context.Context, u string) ([]RepoRef, error) {
+			require.Equal(t, authedUser, u)
+
+			return []RepoRef{repo}, nil
+		},
+		listFn: func(
+			_ context.Context, _ RepoRef, u string, _ int64,
+		) ([]types.Event, error) {
+			require.Equal(t, authedUser, u)
+
+			return nil, nil
+		},
+	}
+
+	store := newMockEventStore()
+	syncer := NewSyncer(gh, store, "")
+
+	result, err := syncer.Sync(context.Background())
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, result.ReposScanned)
+	assert.Empty(t, result.Errors)
+}
+
+func TestSyncer_Sync_ErrorsWhenNoUserAndNotAuthenticated(t *testing.T) {
+	t.Parallel()
+
+	gh := &mockGHClient{
+		authUserFn: func(_ context.Context) (string, error) {
+			return "", nil
+		},
+		discoverFn: func(_ context.Context, _ string) ([]RepoRef, error) {
+			require.FailNow(t, "DiscoverRepos must not run without a user")
+
+			return nil, nil
+		},
+	}
+
+	store := newMockEventStore()
+	syncer := NewSyncer(gh, store, "")
+
+	_, err := syncer.Sync(context.Background())
+	require.ErrorIs(t, err, commerr.ErrNotAuthenticated)
 }
 
 func TestSyncer_Sync_FailSoftOnPerRepoListEventsError(t *testing.T) {

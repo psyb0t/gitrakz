@@ -42,6 +42,23 @@ type ghRepoListEntry struct {
 	NameWithOwner string `json:"nameWithOwner"`
 }
 
+// AuthenticatedUser returns the login gh is authenticated as, via
+// `gh api user --jq .login`.
+func (c *commanderGHClient) AuthenticatedUser(
+	ctx context.Context,
+) (string, error) {
+	stdout, _, err := c.cmd.Output(
+		ctx,
+		ghBinary,
+		[]string{"api", "user", "--jq", ".login"},
+	)
+	if err != nil {
+		return "", ctxerrors.Wrap(err, "gh api user")
+	}
+
+	return strings.TrimSpace(string(stdout)), nil
+}
+
 // DiscoverRepos lists every repo `gh repo list <user>` can see.
 func (c *commanderGHClient) DiscoverRepos(
 	ctx context.Context,

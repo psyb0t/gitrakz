@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"testing"
 	"time"
 
@@ -57,13 +56,12 @@ func TestLoad_Overrides(t *testing.T) {
 	assert.Equal(t, "llm-key", cfg.ElelemAPIKey)
 }
 
-func TestLoad_EmptyGHUser(t *testing.T) {
+func TestLoad_EmptyGHUserAllowed(t *testing.T) {
 	t.Setenv("GITRAKZ_GH_USER", "")
 
 	cfg, err := Load()
-	require.Error(t, err)
-	assert.True(t, errors.Is(err, ErrGHUserRequired))
-	assert.Empty(t, cfg)
+	require.NoError(t, err)
+	assert.Empty(t, cfg.GHUser)
 }
 
 func TestLoad_ParseError(t *testing.T) {
@@ -72,6 +70,5 @@ func TestLoad_ParseError(t *testing.T) {
 
 	cfg, err := Load()
 	require.Error(t, err)
-	assert.NotErrorIs(t, err, ErrGHUserRequired)
 	assert.Empty(t, cfg)
 }

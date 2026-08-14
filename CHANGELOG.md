@@ -4,6 +4,16 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.4.0 — 2026-08-14
+
+`GITRAKZ_GH_USER` is now optional — with an authenticated `gh` CLI, gitrakz
+tracks you with zero configuration.
+
+- When `GITRAKZ_GH_USER` is unset, the sync engine defaults to the login the
+  `gh` CLI is authenticated as (`gh api user`), resolved on the first sync. Set
+  the variable only to track a *different* user's public activity. Previously it
+  was required and gitrakz refused to start without it.
+
 ## v0.3.0 — 2026-08-14
 
 **Breaking.** The `GITRAKZ_HTTP_ADDR` env var is removed — the container always

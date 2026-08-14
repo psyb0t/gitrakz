@@ -83,11 +83,11 @@ GITRAKZ_GH_USER=your-username go run ./cmd run
 
 ## Configuration
 
-All configuration is environment variables, prefixed `GITRAKZ_`. `GITRAKZ_GH_USER` is required; everything else has a sane default.
+All configuration is environment variables, prefixed `GITRAKZ_`. Everything has a sane default — with authenticated `gh`, gitrakz runs with no config at all.
 
 | Variable | Default | What it does |
 |---|---|---|
-| `GITRAKZ_GH_USER` | *(required)* | The GitHub user whose activity is tracked. |
+| `GITRAKZ_GH_USER` | *(gh login)* | The GitHub user whose activity is tracked. Defaults to the `gh` CLI's authenticated login, so leave it unset to track yourself; set it to track another user. |
 | `GITRAKZ_AUTH_TOKEN` | *(empty)* | When set, `/api` requires `Authorization: Bearer <token>`. Empty = open (single-user / trusted network). |
 | `GITRAKZ_DB_PATH` | `/data/gitrakz.db` | SQLite file. Migrations run on boot. |
 | `GITRAKZ_SYNC_SINCE` | `2025-01-01` | Earliest activity to pull on a first sync. |

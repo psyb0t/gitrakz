@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/ctxerrors/commerr"
 	"github.com/psyb0t/ctxscope"
 	"github.com/psyb0t/gitrakz/internal/pkg/common/types"
 )
@@ -25,6 +26,11 @@ type RepoRef struct {
 // each. The production implementation shells out to the gh CLI via
 // commander (see commanderGHClient); tests supply a mock.
 type GHClient interface {
+	// AuthenticatedUser returns the login the gh CLI is authenticated as
+	// (`gh api user`). It's used to default the sync target when
+	// GITRAKZ_GH_USER is unset — track yourself without configuring anything.
+	AuthenticatedUser(ctx context.Context) (string, error)
+
 	// DiscoverRepos returns every repo the authenticated gh token can see
 	// for user.
 	DiscoverRepos(ctx context.Context, user string) ([]RepoRef, error)
@@ -58,6 +64,8 @@ type Syncer struct {
 }
 
 // NewSyncer returns a Syncer that syncs user's activity from gh into store.
+// An empty user means "the gh CLI's authenticated login", resolved on the
+// first Sync via GHClient.AuthenticatedUser.
 func NewSyncer(gh GHClient, store EventStore, user string) *Syncer {
 	return &Syncer{gh: gh, store: store, user: user}
 }
@@ -78,10 +86,15 @@ type SyncResult struct {
 func (s *Syncer) Sync(ctx context.Context) (SyncResult, error) {
 	logger := ctxscope.GetLogger(ctx)
 
-	repos, err := s.gh.DiscoverRepos(ctx, s.user)
+	user, err := s.resolveUser(ctx)
+	if err != nil {
+		return SyncResult{}, err
+	}
+
+	repos, err := s.gh.DiscoverRepos(ctx, user)
 	if err != nil {
 		return SyncResult{}, ctxerrors.Wrapf(
-			err, "discover repos for %s", s.user,
+			err, "discover repos for %s", user,
 		)
 	}
 
@@ -93,7 +106,7 @@ func (s *Syncer) Sync(ctx context.Context) (SyncResult, error) {
 			"repo", repo.Repo,
 		)
 
-		eventCount, err := s.syncRepo(ctx, repo)
+		eventCount, err := s.syncRepo(ctx, repo, user)
 		if err != nil {
 			logger.Warn("repo sync failed, continuing",
 				"owner", repo.Owner,
@@ -122,16 +135,43 @@ func (s *Syncer) Sync(ctx context.Context) (SyncResult, error) {
 	return result, nil
 }
 
+// resolveUser returns the configured sync target, or — when GITRAKZ_GH_USER is
+// unset — the login the gh CLI is authenticated as. It errors only when neither
+// is available (no env var AND gh is not authenticated).
+func (s *Syncer) resolveUser(ctx context.Context) (string, error) {
+	if s.user != "" {
+		return s.user, nil
+	}
+
+	user, err := s.gh.AuthenticatedUser(ctx)
+	if err != nil {
+		return "", ctxerrors.Wrap(err, "resolve authenticated gh user")
+	}
+
+	if user == "" {
+		return "", ctxerrors.Wrap(
+			commerr.ErrNotAuthenticated,
+			"GITRAKZ_GH_USER unset and gh reported no authenticated user",
+		)
+	}
+
+	return user, nil
+}
+
 // syncRepo pulls + persists r's events since its last recorded sync, then
 // advances sync_state to the newest event's timestamp. Returns the number
 // of events upserted.
-func (s *Syncer) syncRepo(ctx context.Context, r RepoRef) (int, error) {
+func (s *Syncer) syncRepo(
+	ctx context.Context,
+	r RepoRef,
+	user string,
+) (int, error) {
 	since, err := s.store.GetSyncState(ctx, r.Owner, r.Repo)
 	if err != nil {
 		return 0, ctxerrors.Wrap(err, "get sync state")
 	}
 
-	events, err := s.gh.ListEvents(ctx, r, s.user, since)
+	events, err := s.gh.ListEvents(ctx, r, user, since)
 	if err != nil {
 		return 0, ctxerrors.Wrap(err, "list events")
 	}
