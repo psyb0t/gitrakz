@@ -4,6 +4,17 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.2.2 — 2026-08-14
+
+Build/CI. No code change.
+
+- Add `make generate` (`go generate ./...`) plus path-scoped `make generate-api`
+  and `make generate-repos`, and turn on the pipeline's codegen-drift gate
+  (`has_codegen: true`). CI now fails if a committed `*.gen.go` — the
+  oapi-codegen HTTP server or the gorm repositories — is stale versus its source
+  (`api/api.yml` / the models). Both generators are idempotent, so a clean tree
+  stays clean.
+
 ## v0.2.1 — 2026-08-14
 
 - Replace the hand-rolled bearer-auth middleware with

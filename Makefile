@@ -21,3 +21,19 @@ include Makefile.servicepack
 # 	@echo "Running custom build..."
 
 # Add your custom targets below this line
+
+.PHONY: generate generate-api generate-repos
+
+# `generate` runs every generator: each output package declares its own
+# generator in a gen.go, so `go generate ./...` discovers them all and this
+# never enumerates directories. A new generated package is picked up the moment
+# its gen.go exists.
+generate: ## Regenerate all generated code (go generate ./...)
+	go generate ./...
+
+# Path-scoped targets regenerate ONE thing on demand.
+generate-api: ## Regenerate just the OpenAPI server + types from api/api.yml
+	go generate ./internal/pkg/http/api/...
+
+generate-repos: ## Regenerate just the gorm repositories
+	go generate ./internal/pkg/db/repositories/...

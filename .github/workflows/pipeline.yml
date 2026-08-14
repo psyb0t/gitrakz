@@ -12,6 +12,11 @@ jobs:
       test_command: "make test-coverage"
       is_vendored: true
       coverage_file: "coverage-percent.txt"
+      # Runs `make generate` and fails if the tree moves — catches a hand-edit
+      # to a *.gen.go, or an api.yml / model change whose codegen was never
+      # re-run. gitrakz commits the oapi-codegen server + the gorm repositories,
+      # both idempotent, so any diff is exactly one of those two.
+      has_codegen: true
 
   badges:
     needs: [call-go-workflow]
