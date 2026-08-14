@@ -12,7 +12,7 @@ import (
 
 // bearerAuth rejects any request whose Authorization header doesn't carry
 // "Bearer <token>" matching token exactly (constant-time compare — this
-// gates every state-changing endpoint under /api/ once cfg.AuthToken is
+// gates every state-changing endpoint under /api/v1/ once cfg.AuthToken is
 // set, per the single-user "still gated" auth model).
 func bearerAuth(token string) middleware.Middleware {
 	return func(next http.Handler) http.Handler {

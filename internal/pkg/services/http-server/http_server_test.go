@@ -14,9 +14,9 @@ import (
 )
 
 // TestService_BootSmoke boots the real Service (real SQLite in a temp dir,
-// no real gh/LLM calls — GET /api/owners and GET / never touch either) on
+// no real gh/LLM calls — GET /api/v1/owners and GET / never touch either) on
 // an OS-assigned port, and checks the two cheapest end-to-end signals: the
-// generated API answers under /api/, and the embedded SPA answers at /.
+// generated API answers under /api/v1/, and the embedded SPA answers at /.
 func TestService_BootSmoke(t *testing.T) {
 	t.Setenv("GITRAKZ_GH_USER", "octocat")
 	t.Setenv("GITRAKZ_DB_PATH", filepath.Join(t.TempDir(), "gitrakz.db"))
@@ -39,9 +39,9 @@ func TestService_BootSmoke(t *testing.T) {
 
 	baseURL := "http://" + svc.srv.GetHTTPListenerAddr().String()
 
-	t.Run("GET /api/owners on an empty db", func(t *testing.T) {
+	t.Run("GET /api/v1/owners on an empty db", func(t *testing.T) {
 		req, err := http.NewRequestWithContext(
-			t.Context(), http.MethodGet, baseURL+"/api/owners", nil,
+			t.Context(), http.MethodGet, baseURL+"/api/v1/owners", nil,
 		)
 		require.NoError(t, err)
 

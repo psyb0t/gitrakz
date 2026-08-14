@@ -4,6 +4,18 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.2.0 — 2026-08-14
+
+- **Breaking (API):** REST endpoints are now versioned under `/api/v1` (e.g.
+  `GET /api/v1/owners`). The version prefix moved into the OpenAPI `servers:`
+  block — the paths there are version-less, and the generated handler applies
+  the prefix via `BaseURL`, so it lives in exactly one place. Point any client
+  at the `/api/v1` base; the embedded SPA is already updated.
+- **Removed** the unimplemented `text/event-stream` (SSE) response from
+  `POST /api/v1/run`. A run always returns the whole typed-block document as a
+  single JSON response; any LLM-backed prose block is computed server-side (and
+  cached by prompt/config version), then included in that document.
+
 ## v0.1.0 — 2026-08-14
 
 Initial release.

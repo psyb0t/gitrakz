@@ -122,23 +122,23 @@ Ships with built-in templates — *Activity summary*, *Commits per repo*, and a 
 
 ## HTTP API
 
-Everything the SPA does is a REST call under `/api` (JSON, camelCase), behind `GITRAKZ_AUTH_TOKEN` when set.
+Everything the SPA does is a REST call under `/api/v1` (JSON, camelCase), behind `GITRAKZ_AUTH_TOKEN` when set. The `/api/v1` prefix lives in the spec's `servers:` block; the paths are version-less there.
 
 ```
-GET  /                        # the embedded Svelte SPA
-GET  /api/owners              # distinct owners
-GET  /api/repos?owner=        # repos under an owner
-GET  /api/timeline?owner=&repo=&type=&from=&to=&page=&perPage=
-GET  /api/sessions?…          # sessionized view + heuristic hours
-POST /api/sync                # trigger an incremental sync
-GET  /api/sync/status         # last sync status
-GET  /api/templates           # list (built-in + custom)
-POST /api/templates           # create a custom template
-PUT  /api/templates/{id}      # edit (built-ins clone-on-edit)
-DELETE /api/templates/{id}    # delete a custom template
-POST /api/templates/generate  # LLM-compose a template draft from a description
-POST /api/run                 # run a template over a filter -> block document
-POST /api/export              # export a document / run to csv|pdf|json
+GET  /                           # the embedded Svelte SPA
+GET  /api/v1/owners              # distinct owners
+GET  /api/v1/repos?owner=        # repos under an owner
+GET  /api/v1/timeline?owner=&repo=&type=&from=&to=&page=&perPage=
+GET  /api/v1/sessions?…          # sessionized view + heuristic hours
+POST /api/v1/sync                # trigger an incremental sync
+GET  /api/v1/sync/status         # last sync status
+GET  /api/v1/templates           # list (built-in + custom)
+POST /api/v1/templates           # create a custom template
+PUT  /api/v1/templates/{id}      # edit (built-ins clone-on-edit)
+DELETE /api/v1/templates/{id}    # delete a custom template
+POST /api/v1/templates/generate  # LLM-compose a template draft from a description
+POST /api/v1/run                 # run a template over a filter -> block document (JSON)
+POST /api/v1/export              # export a document / run to csv|pdf|json
 ```
 
 The OpenAPI spec at `api/api.yml` is the source of truth; the server interface and types are generated from it.

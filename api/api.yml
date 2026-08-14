@@ -10,8 +10,8 @@ info:
     building-block libraries).
   version: 1.0.0
 servers:
-  - url: /v1
-    description: gitrakz API v1
+  - url: /api/v1
+    description: gitrakz API v1 (mounted at /api/v1; paths below are version-less)
 tags:
   - name: owners
     description: Distinct owners/orgs discovered from ingested activity
@@ -30,7 +30,7 @@ tags:
   - name: export
     description: Raw or templated document export
 paths:
-  /api/owners:
+  /owners:
     get:
       operationId: listOwners
       summary: List distinct owners/orgs
@@ -51,7 +51,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/repos:
+  /repos:
     get:
       operationId: listRepos
       summary: List repos under an owner
@@ -71,7 +71,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/timeline:
+  /timeline:
     get:
       operationId: listTimeline
       summary: Paginated, filterable event timeline
@@ -95,7 +95,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/sessions:
+  /sessions:
     get:
       operationId: listSessions
       summary: Derived, sessionized view of the timeline
@@ -116,7 +116,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/sync:
+  /sync:
     post:
       operationId: triggerSync
       summary: Trigger an incremental sync of activity from `gh`
@@ -132,7 +132,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/sync/status:
+  /sync/status:
     get:
       operationId: getSyncStatus
       summary: Current sync status
@@ -148,7 +148,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/templates:
+  /templates:
     get:
       operationId: listTemplates
       summary: List templates (built-in + custom)
@@ -186,7 +186,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/templates/{id}:
+  /templates/{id}:
     put:
       operationId: updateTemplate
       summary: Edit a template
@@ -226,7 +226,7 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/templates/generate:
+  /templates/generate:
     post:
       operationId: generateTemplate
       summary: LLM-compose a template draft from a description
@@ -253,15 +253,15 @@ paths:
         default:
           $ref: "#/components/responses/Error"
 
-  /api/run:
+  /run:
     post:
       operationId: runTemplate
       summary: Run a template's transform pipeline over a filtered range
       description: >-
         Runs the deterministic transform pipeline and returns the resulting
-        typed-block document. Streams via SSE (`essessey` frames) only when
-        the template's layout includes an LLM-backed prose block; otherwise
-        the same call returns the plain JSON document.
+        typed-block document as JSON. Any LLM-backed prose block is computed
+        server-side (and cached by prompt/config version) and included in the
+        returned document — the whole document comes back in one response.
       tags:
         - run
       requestBody:
@@ -272,24 +272,15 @@ paths:
               $ref: "#/components/schemas/RunRequest"
       responses:
         "200":
-          description: >-
-            The rendered document, either streamed as SSE or returned as
-            plain JSON depending on whether the template's layout has an
-            LLM-backed block.
+          description: The rendered typed-block document.
           content:
-            text/event-stream:
-              schema:
-                type: string
-                description: >-
-                  Stream of `essessey` SSE frames terminating in the final
-                  Document.
             application/json:
               schema:
                 $ref: "#/components/schemas/Document"
         default:
           $ref: "#/components/responses/Error"
 
-  /api/export:
+  /export:
     post:
       operationId: exportDocument
       summary: Export a document (or a template run) to a file

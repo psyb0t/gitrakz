@@ -1,7 +1,7 @@
 // Package httpserver is gitrakz's only servicepack service: it boots the
 // whole app — SQLite storage + migrations, the gh sync engine, the
 // transform/template engine, the LLM adapters, and an aichteeteapee/serbewr
-// HTTP server mounting the generated API under /api/ plus the embedded
+// HTTP server mounting the generated API under /api/v1/ plus the embedded
 // Svelte SPA — and runs a background sync ticker for the lifetime of the
 // process.
 package httpserver
@@ -169,8 +169,10 @@ func wire(cfg config.Config, store *db.Store) (*Service, error) {
 	})
 
 	strictHandler := api.NewStrictHandler(apiServer, nil)
+	// The OpenAPI paths are version-less; BaseURL applies the /api/v1 prefix
+	// so registered routes are "/api/v1/...", matching apiMountPattern.
 	apiHandler := api.HandlerWithOptions(
-		strictHandler, api.StdHTTPServerOptions{},
+		strictHandler, api.StdHTTPServerOptions{BaseURL: apiBaseURL},
 	)
 
 	spaHandler, err := newSPAHandler()
@@ -270,7 +272,7 @@ func (s *Service) Stop(ctx context.Context) error {
 }
 
 // runSyncTicker calls syncCtl.Trigger every cfg.SyncInterval until ctx is
-// done. cfg.SyncInterval <= 0 disables the ticker — manual /api/sync
+// done. cfg.SyncInterval <= 0 disables the ticker — manual /api/v1/sync
 // triggers still work. A recovered panic is logged rather than crashing
 // the whole service, per the goroutine panic-recovery rule.
 func (s *Service) runSyncTicker(ctx context.Context) {
@@ -308,7 +310,7 @@ func (s *Service) runSyncTicker(ctx context.Context) {
 	}
 }
 
-// runScheduledSync runs one sync through syncCtl (so /api/sync/status
+// runScheduledSync runs one sync through syncCtl (so /api/v1/sync/status
 // reflects scheduled runs too) and logs the outcome.
 func (s *Service) runScheduledSync(ctx context.Context) {
 	logger := ctxscope.GetLogger(ctx)

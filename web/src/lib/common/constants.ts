@@ -2,17 +2,20 @@
 // used across the SPA — per the "no magic literals" rule, nothing here gets
 // hand-typed at a call site.
 
-// --- API endpoint paths (exact paths from api/api.yml) ---
-export const API_OWNERS = "/api/owners";
-export const API_REPOS = "/api/repos";
-export const API_TIMELINE = "/api/timeline";
-export const API_SESSIONS = "/api/sessions";
-export const API_SYNC = "/api/sync";
-export const API_SYNC_STATUS = "/api/sync/status";
-export const API_TEMPLATES = "/api/templates";
-export const API_TEMPLATE_GENERATE = "/api/templates/generate";
-export const API_RUN = "/api/run";
-export const API_EXPORT = "/api/export";
+// --- API base + endpoint paths. The version-less paths come from
+// api/api.yml; the /api/v1 base mirrors the server's apiBaseURL (which the
+// generated handler applies via BaseURL), so it lives in one place here too. ---
+export const API_BASE = "/api/v1";
+export const API_OWNERS = `${API_BASE}/owners`;
+export const API_REPOS = `${API_BASE}/repos`;
+export const API_TIMELINE = `${API_BASE}/timeline`;
+export const API_SESSIONS = `${API_BASE}/sessions`;
+export const API_SYNC = `${API_BASE}/sync`;
+export const API_SYNC_STATUS = `${API_BASE}/sync/status`;
+export const API_TEMPLATES = `${API_BASE}/templates`;
+export const API_TEMPLATE_GENERATE = `${API_BASE}/templates/generate`;
+export const API_RUN = `${API_BASE}/run`;
+export const API_EXPORT = `${API_BASE}/export`;
 
 export function apiTemplateByID(id: string): string {
   return `${API_TEMPLATES}/${encodeURIComponent(id)}`;

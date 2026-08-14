@@ -11,22 +11,23 @@ import (
 // patterns, both registered with NO method restriction (RouteConfig.Method
 // left empty) — net/http.ServeMux panics at registration time on two
 // patterns whose specificity disagrees across the method and path axes
-// (e.g. an any-method "/api/{path...}" vs a GET-only "/{path...}"), so
+// (e.g. an any-method "/api/v1/{path...}" vs a GET-only "/{path...}"), so
 // spaHandler itself rejects non-GET/HEAD (see newSPAHandler) rather than
-// the route restricting the method. api.HandlerWithOptions already bakes
-// "/api/..." into every route it registers (see
-// internal/pkg/http/api/api.gen.go), so apiMountPattern forwards the raw
-// request into that sub-handler unmodified — no BaseURL prefix, no path
-// stripping. ServeMux prefers the more specific "/api/..." pattern over
-// the catch-all SPA fallback, so anything under /api/ never reaches
-// spaMountPattern.
+// the route restricting the method. The OpenAPI paths are version-less;
+// api.HandlerWithOptions is given BaseURL "/api/v1" (see http_server.go),
+// so it registers "/api/v1/..." into every route (see
+// internal/pkg/http/api/api.gen.go), and apiMountPattern forwards the raw
+// request into that sub-handler unmodified — no path stripping. ServeMux
+// prefers the more specific "/api/v1/..." pattern over the catch-all SPA
+// fallback, so anything under /api/v1/ never reaches spaMountPattern.
 const (
-	apiMountPattern = "/api/{path...}"
+	apiBaseURL      = "/api/v1"
+	apiMountPattern = apiBaseURL + "/{path...}"
 	spaMountPattern = "/{path...}"
 )
 
 // newRouter builds the serbewr.Router gitrakz serves: the generated API
-// under /api/ (Bearer-gated when authToken is set) and the embedded SPA
+// under /api/v1/ (Bearer-gated when authToken is set) and the embedded SPA
 // everywhere else.
 func newRouter(
 	authToken string,

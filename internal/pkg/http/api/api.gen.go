@@ -342,43 +342,43 @@ type UpdateTemplateJSONRequestBody = TemplateInput
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// ExportDocument Export a document (or a template run) to a file
-	// (POST /api/export)
+	// (POST /export)
 	ExportDocument(w http.ResponseWriter, r *http.Request)
 	// ListOwners List distinct owners/orgs
-	// (GET /api/owners)
+	// (GET /owners)
 	ListOwners(w http.ResponseWriter, r *http.Request)
 	// ListRepos List repos under an owner
-	// (GET /api/repos)
+	// (GET /repos)
 	ListRepos(w http.ResponseWriter, r *http.Request, params ListReposParams)
 	// RunTemplate Run a template's transform pipeline over a filtered range
-	// (POST /api/run)
+	// (POST /run)
 	RunTemplate(w http.ResponseWriter, r *http.Request)
 	// ListSessions Derived, sessionized view of the timeline
-	// (GET /api/sessions)
+	// (GET /sessions)
 	ListSessions(w http.ResponseWriter, r *http.Request, params ListSessionsParams)
 	// TriggerSync Trigger an incremental sync of activity from `gh`
-	// (POST /api/sync)
+	// (POST /sync)
 	TriggerSync(w http.ResponseWriter, r *http.Request)
 	// GetSyncStatus Current sync status
-	// (GET /api/sync/status)
+	// (GET /sync/status)
 	GetSyncStatus(w http.ResponseWriter, r *http.Request)
 	// ListTemplates List templates (built-in + custom)
-	// (GET /api/templates)
+	// (GET /templates)
 	ListTemplates(w http.ResponseWriter, r *http.Request)
 	// CreateTemplate Create a custom template
-	// (POST /api/templates)
+	// (POST /templates)
 	CreateTemplate(w http.ResponseWriter, r *http.Request)
 	// GenerateTemplate LLM-compose a template draft from a description
-	// (POST /api/templates/generate)
+	// (POST /templates/generate)
 	GenerateTemplate(w http.ResponseWriter, r *http.Request)
 	// DeleteTemplate Delete a custom template
-	// (DELETE /api/templates/{id})
+	// (DELETE /templates/{id})
 	DeleteTemplate(w http.ResponseWriter, r *http.Request, id TemplateIdPathParam)
 	// UpdateTemplate Edit a template
-	// (PUT /api/templates/{id})
+	// (PUT /templates/{id})
 	UpdateTemplate(w http.ResponseWriter, r *http.Request, id TemplateIdPathParam)
 	// ListTimeline Paginated, filterable event timeline
-	// (GET /api/timeline)
+	// (GET /timeline)
 	ListTimeline(w http.ResponseWriter, r *http.Request, params ListTimelineParams)
 }
 
@@ -891,19 +891,19 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/owners", wrapper.ListOwners)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/repos", wrapper.ListRepos)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/timeline", wrapper.ListTimeline)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/sessions", wrapper.ListSessions)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/sync", wrapper.TriggerSync)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/sync/status", wrapper.GetSyncStatus)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/templates", wrapper.ListTemplates)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/templates", wrapper.CreateTemplate)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/templates/{id}", wrapper.DeleteTemplate)
-	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/templates/{id}", wrapper.UpdateTemplate)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/templates/generate", wrapper.GenerateTemplate)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/run", wrapper.RunTemplate)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/export", wrapper.ExportDocument)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/owners", wrapper.ListOwners)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/repos", wrapper.ListRepos)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/timeline", wrapper.ListTimeline)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/sessions", wrapper.ListSessions)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/sync", wrapper.TriggerSync)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/sync/status", wrapper.GetSyncStatus)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/templates", wrapper.ListTemplates)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/templates", wrapper.CreateTemplate)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/templates/{id}", wrapper.DeleteTemplate)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/templates/{id}", wrapper.UpdateTemplate)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/templates/generate", wrapper.GenerateTemplate)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/run", wrapper.RunTemplate)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/export", wrapper.ExportDocument)
 
 	return m
 }
@@ -1052,49 +1052,6 @@ func (response RunTemplate200JSONResponse) VisitRunTemplateResponse(w http.Respo
 	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
-}
-
-type RunTemplate200TexteventStreamResponse struct {
-	Body          io.Reader
-	ContentLength int64
-}
-
-func (response RunTemplate200TexteventStreamResponse) VisitRunTemplateResponse(w http.ResponseWriter) error {
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	if response.ContentLength != 0 {
-		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
-	}
-	w.WriteHeader(200)
-
-	if closer, ok := response.Body.(io.ReadCloser); ok {
-		defer closer.Close()
-	}
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		// If w doesn't support flushing, fall back to io.Copy.
-		_, err := io.Copy(w, response.Body)
-		return err
-	}
-	// text/event-stream messages are typically small; use a
-	// modest buffer and flush after each chunk so clients see
-	// events immediately instead of waiting on OS buffering.
-	buf := make([]byte, 4096)
-	for {
-		n, err := response.Body.Read(buf)
-		if n > 0 {
-			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
-				return writeErr
-			}
-			flusher.Flush()
-		}
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
-			return err
-		}
-	}
 }
 
 type RunTemplatedefaultJSONResponse struct {
@@ -1460,43 +1417,43 @@ func (response ListTimelinedefaultJSONResponse) VisitListTimelineResponse(w http
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ExportDocument Export a document (or a template run) to a file
-	// (POST /api/export)
+	// (POST /export)
 	ExportDocument(ctx context.Context, request ExportDocumentRequestObject) (ExportDocumentResponseObject, error)
 	// ListOwners List distinct owners/orgs
-	// (GET /api/owners)
+	// (GET /owners)
 	ListOwners(ctx context.Context, request ListOwnersRequestObject) (ListOwnersResponseObject, error)
 	// ListRepos List repos under an owner
-	// (GET /api/repos)
+	// (GET /repos)
 	ListRepos(ctx context.Context, request ListReposRequestObject) (ListReposResponseObject, error)
 	// RunTemplate Run a template's transform pipeline over a filtered range
-	// (POST /api/run)
+	// (POST /run)
 	RunTemplate(ctx context.Context, request RunTemplateRequestObject) (RunTemplateResponseObject, error)
 	// ListSessions Derived, sessionized view of the timeline
-	// (GET /api/sessions)
+	// (GET /sessions)
 	ListSessions(ctx context.Context, request ListSessionsRequestObject) (ListSessionsResponseObject, error)
 	// TriggerSync Trigger an incremental sync of activity from `gh`
-	// (POST /api/sync)
+	// (POST /sync)
 	TriggerSync(ctx context.Context, request TriggerSyncRequestObject) (TriggerSyncResponseObject, error)
 	// GetSyncStatus Current sync status
-	// (GET /api/sync/status)
+	// (GET /sync/status)
 	GetSyncStatus(ctx context.Context, request GetSyncStatusRequestObject) (GetSyncStatusResponseObject, error)
 	// ListTemplates List templates (built-in + custom)
-	// (GET /api/templates)
+	// (GET /templates)
 	ListTemplates(ctx context.Context, request ListTemplatesRequestObject) (ListTemplatesResponseObject, error)
 	// CreateTemplate Create a custom template
-	// (POST /api/templates)
+	// (POST /templates)
 	CreateTemplate(ctx context.Context, request CreateTemplateRequestObject) (CreateTemplateResponseObject, error)
 	// GenerateTemplate LLM-compose a template draft from a description
-	// (POST /api/templates/generate)
+	// (POST /templates/generate)
 	GenerateTemplate(ctx context.Context, request GenerateTemplateRequestObject) (GenerateTemplateResponseObject, error)
 	// DeleteTemplate Delete a custom template
-	// (DELETE /api/templates/{id})
+	// (DELETE /templates/{id})
 	DeleteTemplate(ctx context.Context, request DeleteTemplateRequestObject) (DeleteTemplateResponseObject, error)
 	// UpdateTemplate Edit a template
-	// (PUT /api/templates/{id})
+	// (PUT /templates/{id})
 	UpdateTemplate(ctx context.Context, request UpdateTemplateRequestObject) (UpdateTemplateResponseObject, error)
 	// ListTimeline Paginated, filterable event timeline
-	// (GET /api/timeline)
+	// (GET /timeline)
 	ListTimeline(ctx context.Context, request ListTimelineRequestObject) (ListTimelineResponseObject, error)
 }
 
@@ -1901,65 +1858,65 @@ func (sh *strictHandler) ListTimeline(w http.ResponseWriter, r *http.Request, pa
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

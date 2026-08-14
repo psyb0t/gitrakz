@@ -35,7 +35,7 @@ var webDistFS embed.FS
 //
 // The route it's mounted on (see router.go) carries no method restriction
 // — net/http.ServeMux panics on registering a GET-only pattern alongside
-// the any-method /api/{path...} pattern, since neither dominates the
+// the any-method /api/v1/{path...} pattern, since neither dominates the
 // other's specificity — so this handler enforces GET/HEAD itself instead.
 func newSPAHandler() (http.Handler, error) {
 	sub, err := fs.Sub(webDistFS, webDistRoot)
