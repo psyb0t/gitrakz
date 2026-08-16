@@ -4,6 +4,17 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.6.2 — 2026-08-16
+
+- **Reliable named-volume state.** Revert the v0.6.1 host bind mount: SQLite is
+  again stored in Docker's `gitrakz-data` volume, so an installer upgrade cannot
+  create a root-owned host directory and break itself.
+- **Automatic upgrade snapshots and restore.** `gitrakz upgrade` writes the
+  current volume to `<config>/backups/YYYYMMDDHHMMSS.tar.gz` before changing the
+  image and retains the newest three. `gitrakz restore <backup.tar.gz>` validates
+  the archive, asks before replacing the volume, preserves a fresh pre-restore
+  snapshot, and leaves the stack stopped for an explicit start.
+
 ## v0.6.1 — 2026-08-16
 
 - **Visible, portable SQLite data.** Installed Compose stacks now bind-mount

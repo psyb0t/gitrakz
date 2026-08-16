@@ -41,15 +41,14 @@ FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec4
 # runtime (it authenticates via the GH_TOKEN env var — no interactive login).
 RUN apk --no-cache add ca-certificates github-cli
 
-# The documented host bind mount defaults to UID/GID 1000. Keep the image's
-# non-root runtime identity stable so an installer's ./data is writable.
+# Keep the non-root runtime identity stable. Docker initializes each fresh data
+# volume from this directory, preserving its appuser ownership.
 RUN addgroup -g 1000 appuser && \
     adduser -D -u 1000 -G appuser -s /bin/sh appuser
 
-# /data is the container-side mountpoint for the host install directory's
-# ./data. It is deliberately not declared as a Docker volume: persistence is
-# explicit and visible on the host.
+# SQLite state lives in a Docker-managed named volume at /data.
 RUN mkdir -p /data && chown appuser:appuser /data
+VOLUME /data
 
 # Set working directory
 WORKDIR /app

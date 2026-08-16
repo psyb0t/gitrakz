@@ -31,7 +31,6 @@ git-update.sh
 
 # Build output, coverage, logs, debug artifacts
 build/
-data/
 coverage.*
 coverage-percent.txt
 *.log

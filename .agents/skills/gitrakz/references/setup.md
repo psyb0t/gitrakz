@@ -68,15 +68,20 @@ gitrakz start      # inject GH_TOKEN from `gh auth token`, pull, and start
 gitrakz stop       # stop the stack
 gitrakz status     # container state
 gitrakz logs [...] # docker compose logs (e.g. gitrakz logs -f)
-gitrakz upgrade    # re-pin to the latest release, pull it, drop the old image
+gitrakz upgrade    # snapshot data, re-pin to the latest release, then pull it
+gitrakz restore ~/.config/gitrakz/backups/<timestamp>.tar.gz
 gitrakz uninstall  # stop, remove the command, ask before deleting your data
 ```
 
 - `gitrakz start --rolling` / `gitrakz upgrade --rolling` use the moving
   `:latest` image (built from `main`) for that one invocation only — the pinned
   release in `.env` is left untouched. Use it to try unreleased changes.
-- `upgrade` deletes the previous pinned image on success so images do not pile
-  up. `uninstall` only deletes `~/.config/gitrakz` and the data volume if you say yes.
+- `upgrade` snapshots the named data volume under `<config>/backups/` as
+  `YYYYMMDDHHMMSS.tar.gz`, keeps the newest three, and deletes the previous
+  pinned image on success so images do not pile up. `restore <backup.tar.gz>`
+  validates the archive, asks before replacing the volume, saves a fresh current
+  snapshot, and leaves the stack stopped for an explicit `gitrakz start`.
+  `uninstall` only deletes `~/.config/gitrakz` and the data volume if you say yes.
 
 ## Run it with Docker directly
 

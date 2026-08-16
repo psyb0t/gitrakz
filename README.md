@@ -94,14 +94,19 @@ gitrakz setup            # recreate the config (compose + .env) without clobberi
 gitrakz status
 gitrakz logs -f
 gitrakz stop
-gitrakz upgrade          # re-pin to the latest release, pull it, drop the old image
+gitrakz upgrade          # back up data, re-pin to the latest release, then pull it
 gitrakz upgrade --rolling # test the moving :latest built from main, just this once
+gitrakz restore ~/.config/gitrakz/backups/<timestamp>.tar.gz
 gitrakz uninstall        # remove the command; asks before deleting your data
 ```
 
 Configuration lives in `~/.config/gitrakz/.env` (or `/etc/gitrakz/.env` for a
-system-wide install), and the SQLite database lives beside it in `data/` —
-not hidden in a Docker-managed volume. **Edit `.env` right after install** to
+system-wide install). SQLite state stays in Docker's named `gitrakz-data`
+volume. Every `gitrakz upgrade` writes a snapshot named
+`YYYYMMDDHHMMSS.tar.gz` under the install directory's `backups/` folder and
+keeps the newest three. `gitrakz restore <backup.tar.gz>` validates the archive,
+asks before replacing the volume, snapshots its current contents, and leaves the
+stack stopped for an explicit `gitrakz start`. **Edit `.env` right after install** to
 change the published port (`GITRAKZ_PUBLISH_PORT`), expose it beyond localhost
 (`GITRAKZ_PUBLISH_ADDR`), set an API bearer token (`GITRAKZ_AUTH_TOKEN`), track a
 different user (`GITRAKZ_GH_USER`), or enable the optional LLM features
@@ -115,18 +120,14 @@ token straight through — that is the only auth gitrakz needs (it runs `gh` ins
 the container with it):
 
 ```bash
-mkdir -p gitrakz-data
 docker run --rm -p 8080:8080 \
-  --user "$(id -u):$(id -g)" \
   -e GH_TOKEN="$(gh auth token)" \
-  -v "$PWD/gitrakz-data:/data" \
-  psyb0t/gitrakz:v0.6.1 run          # pin a release tag, not :latest
+  -v gitrakz-data:/data \
+  psyb0t/gitrakz:v0.6.2 run          # pin a release tag, not :latest
 ```
 
-That `gitrakz-data/` folder is the database on your machine: copy or back it up
-like any other application data. Add any `-e GITRAKZ_*` from the
-[Configuration](#configuration) table. Or run the same pinned stack straight
-from the compose file the installer wrote:
+Add any `-e GITRAKZ_*` from the [Configuration](#configuration) table. Or run
+the same pinned stack straight from the compose file the installer wrote:
 
 ```bash
 export GH_TOKEN="$(gh auth token)"

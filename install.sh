@@ -20,8 +20,6 @@ readonly SYSTEM_INSTALL_PATH="/usr/local/bin/gitrakz"
 readonly SYSTEM_CONFIG_DIR="/etc/gitrakz"
 readonly WRAPPER_MARKER="gitrakz-managed-command"
 readonly CONFIG_DIRECTORY_NAME="gitrakz"
-readonly DATA_DIRECTORY_NAME="data"
-readonly CONTAINER_DATA_OWNER="1000:1000"
 # shellcheck disable=SC2016  # deliberately literal: $HOME/$PATH must land in the rc file unexpanded
 readonly USER_PATH_SNIPPET='export PATH="$HOME/.local/bin:$PATH"'
 readonly IMAGE_REPO="psyb0t/gitrakz"
@@ -92,80 +90,18 @@ prepare_config_dir() {
 	install -d -m 0700 "$TARGET_CONFIG_DIR"
 }
 
-# prepare_data_dir makes persistence visible beside docker-compose.yml rather
-# than burying it in a Docker-managed volume. The image's appuser is fixed to
-# 1000:1000; per-user stacks map that identity to the installing account when
-# the wrapper starts Compose.
-prepare_data_dir() {
-	local data_dir="$TARGET_CONFIG_DIR/$DATA_DIRECTORY_NAME"
-
-	if [[ "$MODE" == "system" ]]; then
-		install -d -m 0750 -o 1000 -g 1000 "$data_dir"
-
-		return
-	fi
-
-	install -d -m 0700 "$data_dir"
-}
-
-data_owner() {
-	if [[ "$MODE" == "system" ]]; then
-		printf '%s\n' "$CONTAINER_DATA_OWNER"
-
-		return
-	fi
-
-	printf '%s:%s\n' "$(id -u)" "$(id -g)"
-}
-
-# legacy_data_volume returns the old Compose-managed volume only while the
-# installed Compose file still references it. New installs use ./data instead.
-legacy_data_volume() {
-	local config_dir="$1"
-
-	[[ -f "$config_dir/docker-compose.yml" && -f "$config_dir/.env" ]] || return 0
-	grep -Fq 'gitrakz-data:/data' "$config_dir/docker-compose.yml" || return 0
-
-	GH_TOKEN=unused GITRAKZ_CONTAINER_USER="$CONTAINER_DATA_OWNER" docker compose \
-		--project-directory "$config_dir" \
-		--env-file "$config_dir/.env" \
-		-f "$config_dir/docker-compose.yml" config 2>/dev/null | awk '
-			$0 == "volumes:" { in_volumes = 1; next }
-			in_volumes && $0 == "  gitrakz-data:" { target = 1; next }
-			target && $1 == "name:" { print $2; exit }
-		'
-}
-
-# migrate_legacy_data makes the named-volume database visible in the install
-# directory before a refreshed Compose file switches to the bind mount. The old
-# volume is retained as a harmless rollback copy; this function never removes it.
-migrate_legacy_data() {
-	local volume_name="$1" image="$2" data_dir="$TARGET_CONFIG_DIR/$DATA_DIRECTORY_NAME"
-	local owner
-
-	[[ -n "$volume_name" && ! -e "$data_dir/gitrakz.db" ]] || return 0
-	docker volume inspect "$volume_name" >/dev/null 2>&1 || return 0
-	owner="$(data_owner)"
-
-	say "moving existing gitrakz data into $data_dir"
-	docker run --rm --user 0:0 --entrypoint sh \
-		--mount "type=volume,source=$volume_name,target=/from,readonly" \
-		--mount "type=bind,source=$data_dir,target=/to" \
-		"$image" -ec 'cp -a /from/. /to/ && chown -R "$1" /to' sh "$owner"
-}
-
 # apply_config_permissions re-asserts the sharing model after config is written.
 # Only meaningful for the system install.
 apply_config_permissions() {
 	[[ "$MODE" == "system" ]] || return 0
 
 	if getent group docker >/dev/null 2>&1; then
-		find "$TARGET_CONFIG_DIR" -path "$TARGET_CONFIG_DIR/$DATA_DIRECTORY_NAME" -prune -o -exec chgrp docker {} + || true
+		find "$TARGET_CONFIG_DIR" -exec chgrp docker {} + || true
 	fi
 	# Group may read/traverse but never write.
-	find "$TARGET_CONFIG_DIR" -path "$TARGET_CONFIG_DIR/$DATA_DIRECTORY_NAME" -prune -o -exec chmod g-w {} + || true
-	find "$TARGET_CONFIG_DIR" -path "$TARGET_CONFIG_DIR/$DATA_DIRECTORY_NAME" -prune -o -type d -exec chmod g+rx {} + || true
-	find "$TARGET_CONFIG_DIR" -path "$TARGET_CONFIG_DIR/$DATA_DIRECTORY_NAME" -prune -o -type f -exec chmod g+r {} + || true
+	find "$TARGET_CONFIG_DIR" -exec chmod g-w {} + || true
+	find "$TARGET_CONFIG_DIR" -type d -exec chmod g+rx {} + || true
+	find "$TARGET_CONFIG_DIR" -type f -exec chmod g+r {} + || true
 }
 
 # warn_user_path tells a per-user installer, in the terminal, exactly how to put
@@ -307,6 +243,8 @@ readonly RAW_BASE="https://raw.githubusercontent.com/psyb0t/gitrakz"
 readonly INSTALLER_URL="https://raw.githubusercontent.com/psyb0t/gitrakz/main/install.sh"
 readonly GITHUB_API_LATEST="https://api.github.com/repos/psyb0t/gitrakz/releases/latest"
 readonly COMMAND_LOG_FILE="${TMPDIR:-/tmp}/gitrakz-command.log"
+readonly BACKUP_DIRECTORY_NAME="backups"
+readonly BACKUP_KEEP_COUNT=3
 
 # Plain user-facing output; still tee'd to COMMAND_LOG_FILE for a debug trail.
 say() { printf '==> %s\n' "$*"; }
@@ -330,7 +268,8 @@ Commands:
   stop       Stop the gitrakz stack
   status     Show the container state
   logs       Follow logs; pass any extra `docker compose logs` arguments
-  upgrade    Re-pin to the latest release, pull it, and drop the previous image
+  upgrade    Snapshot data, re-pin to the latest release, and pull it
+  restore    Replace the data volume from a .tar.gz backup (asks first)
   uninstall  Stop the stack, remove the command, and offer to delete your data
   help       Show this help
 
@@ -378,40 +317,18 @@ require_docker() {
 
 compose() {
     local config_dir="$1"
-    local container_user
     shift
 
-    if [[ "$config_dir" == "$SYSTEM_CONFIG_DIR" ]]; then
-        container_user="1000:1000"
-    else
-        container_user="$(id -u):$(id -g)"
-    fi
-
-    GITRAKZ_CONTAINER_USER="$container_user" docker compose \
+    GH_TOKEN="${GH_TOKEN:-unused}" docker compose \
         --project-directory "$config_dir" \
         --env-file "$config_dir/.env" \
         -f "$config_dir/docker-compose.yml" "$@"
 }
 
-ensure_data_dir() {
-    local config_dir="$1" wrap="$2" container_user
-    if [[ "$config_dir" == "$SYSTEM_CONFIG_DIR" ]]; then
-        container_user="1000:1000"
-    else
-        container_user="$(id -u):$(id -g)"
-    fi
-
-    $wrap install -d -m 0700 "$config_dir/data"
-    $wrap chown "$container_user" "$config_dir/data"
-}
-
-legacy_data_volume() {
+data_volume_name() {
     local config_dir="$1"
 
-    [[ -f "$config_dir/docker-compose.yml" && -f "$config_dir/.env" ]] || return 0
-    grep -Fq 'gitrakz-data:/data' "$config_dir/docker-compose.yml" || return 0
-
-    GH_TOKEN=unused GITRAKZ_CONTAINER_USER=1000:1000 docker compose \
+    GH_TOKEN=unused docker compose \
         --project-directory "$config_dir" \
         --env-file "$config_dir/.env" \
         -f "$config_dir/docker-compose.yml" config 2>/dev/null | awk '
@@ -421,23 +338,90 @@ legacy_data_volume() {
         '
 }
 
-migrate_legacy_data() {
-    local config_dir="$1" wrap="$2" image="$3" volume_name="$4"
-    local container_user
-    [[ -n "$volume_name" && ! -e "$config_dir/data/gitrakz.db" ]] || return 0
-    docker volume inspect "$volume_name" >/dev/null 2>&1 || return 0
+backup_data() {
+    local config_dir="$1" wrap="$2" image="$3"
+    local backup_dir volume_name archive_name owner
 
-    if [[ "$config_dir" == "$SYSTEM_CONFIG_DIR" ]]; then
-        container_user="1000:1000"
-    else
-        container_user="$(id -u):$(id -g)"
+    backup_dir="$config_dir/$BACKUP_DIRECTORY_NAME"
+    volume_name="$(data_volume_name "$config_dir")"
+    [[ -n "$volume_name" ]] || fail "could not resolve the gitrakz data volume"
+    if ! docker volume inspect "$volume_name" >/dev/null 2>&1; then
+        say "no existing data volume to back up"
+        return
     fi
-    ensure_data_dir "$config_dir" "$wrap"
-    say "moving existing gitrakz data into $config_dir/data"
+    if ! docker image inspect "$image" >/dev/null 2>&1; then
+        warn "cannot back up $volume_name because image $image is not available"
+        return
+    fi
+
+    $wrap mkdir -p "$backup_dir"
+    archive_name="$(date -u '+%Y%m%d%H%M%S').tar.gz"
+    [[ ! -e "$backup_dir/$archive_name" ]] || fail "backup already exists: $backup_dir/$archive_name"
+    owner="$(id -u):$(id -g)"
+
     docker run --rm --user 0:0 --entrypoint sh \
-        --mount "type=volume,source=$volume_name,target=/from,readonly" \
-        --mount "type=bind,source=$config_dir/data,target=/to" \
-        "$image" -ec 'cp -a /from/. /to/ && chown -R "$1" /to' sh "$container_user"
+        --mount "type=volume,source=$volume_name,target=/data,readonly" \
+        --mount "type=bind,source=$backup_dir,target=/backups" \
+        "$image" -ec 'tar -C /data -czf "/backups/$1" . && chown "$2" "/backups/$1"' sh "$archive_name" "$owner"
+
+    local -a backups=()
+    local index
+    mapfile -t backups < <($wrap find "$backup_dir" -maxdepth 1 -type f -name '??????????????.tar.gz' -printf '%f\n' | LC_ALL=C sort -r)
+    for ((index = BACKUP_KEEP_COUNT; index < ${#backups[@]}; index++)); do
+        $wrap rm -f -- "$backup_dir/${backups[$index]}"
+    done
+    say "backed up the data volume to $backup_dir/$archive_name"
+}
+
+validate_backup_archive() {
+    local backup_path="$1" entry metadata
+
+    tar -tzf "$backup_path" >/dev/null || fail "invalid backup archive: $backup_path"
+    while IFS= read -r entry; do
+        [[ "$entry" != /* && "$entry" != ".." && "$entry" != ../* && "$entry" != */../* ]] ||
+            fail "backup contains an unsafe path: $entry"
+    done < <(tar -tzf "$backup_path")
+    while IFS= read -r metadata; do
+        case "${metadata:0:1}" in
+        - | d) ;;
+        *) fail "backup contains an unsupported archive entry" ;;
+        esac
+    done < <(tar -tzvf "$backup_path")
+}
+
+restore_data() {
+    local backup_path="$1" config_dir wrap volume_name image backup_dir archive_name answer
+
+    require_docker
+    [[ -f "$backup_path" ]] || fail "backup file not found: $backup_path"
+    validate_backup_archive "$backup_path"
+    config_dir="$(config_directory)"
+    ensure_config "$config_dir"
+    wrap="$(root_wrap "$config_dir")"
+    volume_name="$(data_volume_name "$config_dir")"
+    [[ -n "$volume_name" ]] || fail "could not resolve the gitrakz data volume"
+    image="$(env_get "$config_dir" GITRAKZ_IMAGE)"
+    [[ -n "$image" ]] || fail "GITRAKZ_IMAGE is missing from $config_dir/.env"
+    backup_dir="$(cd "$(dirname "$backup_path")" && pwd -P)"
+    archive_name="$(basename "$backup_path")"
+
+    read -r -p "Restore $backup_path and replace the current gitrakz data volume? [y/N] " answer
+    case "$answer" in
+    y | Y | yes | YES) ;;
+    *) say "restore cancelled"; return ;;
+    esac
+
+    backup_data "$config_dir" "$wrap" "$image"
+    if ! docker volume inspect "$volume_name" >/dev/null 2>&1; then
+        docker volume create "$volume_name" >/dev/null
+    fi
+    say "stopping the stack before restoring data"
+    compose "$config_dir" down --remove-orphans
+    docker run --rm --user 0:0 --entrypoint sh \
+        --mount "type=volume,source=$volume_name,target=/data" \
+        --mount "type=bind,source=$backup_dir,target=/backups,readonly" \
+        "$image" -ec 'find /data -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + && tar --no-same-owner --no-same-permissions -xzf "/backups/$1" -C /data && chown -R 1000:1000 /data && find /data -type d -exec chmod 0755 {} + && find /data -type f -exec chmod 0644 {} +' sh "$archive_name"
+    say "restored $backup_path; run gitrakz start when you want it running"
 }
 
 ensure_config() {
@@ -483,16 +467,11 @@ resolve_latest_tag() {
 }
 
 setup() {
-    local config_dir tag wrap legacy_volume
-    require_docker
+    local config_dir tag wrap
     config_dir="$(config_directory)"
     wrap="$(root_wrap "$config_dir")"
     $wrap mkdir -p "$config_dir"
     tag="$(resolve_latest_tag)"
-    legacy_volume="$(legacy_data_volume "$config_dir")"
-    ensure_data_dir "$config_dir" "$wrap"
-    docker pull "$IMAGE_REPO:$tag"
-    migrate_legacy_data "$config_dir" "$wrap" "$IMAGE_REPO:$tag" "$legacy_volume"
 
     $wrap curl -fsSL "$RAW_BASE/$tag/docker-compose.yml" \
         -o "$config_dir/docker-compose.yml"
@@ -504,9 +483,9 @@ setup() {
 
     # Keep the shared-stack model when setup re-runs against system config.
     if [[ -n "$wrap" ]] && getent group docker >/dev/null 2>&1; then
-        $wrap find "$config_dir" -path "$config_dir/data" -prune -o -exec chgrp docker {} + || true
-        $wrap find "$config_dir" -path "$config_dir/data" -prune -o -type d -exec chmod g+rx {} + || true
-        $wrap find "$config_dir" -path "$config_dir/data" -prune -o -type f -exec chmod g+r {} + || true
+        $wrap find "$config_dir" -exec chgrp docker {} + || true
+        $wrap find "$config_dir" -type d -exec chmod g+rx {} + || true
+        $wrap find "$config_dir" -type f -exec chmod g+r {} + || true
     fi
 
     say "config ready at $config_dir"
@@ -573,19 +552,21 @@ upgrade() {
         return
     fi
 
-    local old_image new_tag new_image legacy_volume
+    local old_image new_tag new_image backup_image
     old_image="$(env_get "$config_dir" GITRAKZ_IMAGE)"
     new_tag="$(resolve_latest_tag)"
     new_image="$IMAGE_REPO:$new_tag"
-    legacy_volume="$(legacy_data_volume "$config_dir")"
+    backup_image="$old_image"
+    if [[ -z "$backup_image" ]]; then
+        backup_image="$new_image"
+    fi
 
     if [[ "$old_image" == "$new_image" ]]; then
         say "already on the latest release $new_tag; re-pulling"
     fi
 
+    backup_data "$config_dir" "$wrap" "$backup_image"
     docker pull "$new_image"
-    ensure_data_dir "$config_dir" "$wrap"
-    migrate_legacy_data "$config_dir" "$wrap" "$new_image" "$legacy_volume"
     $wrap curl -fsSL "$RAW_BASE/$new_tag/docker-compose.yml" \
         -o "$config_dir/docker-compose.yml"
     env_set "$config_dir" GITRAKZ_IMAGE "$new_image"
@@ -620,7 +601,7 @@ uninstall() {
     config_dir="$(config_directory)"
     wrap="$(root_wrap "$config_dir")"
 
-    read -r -p "Also delete your data under $config_dir? [y/N] " answer
+    read -r -p "Also delete your data ($config_dir and the gitrakz data volume)? [y/N] " answer
     case "$answer" in
     y | Y | yes | YES) delete_data=1 ;;
     esac
@@ -628,7 +609,7 @@ uninstall() {
     if [[ -f "$config_dir/docker-compose.yml" ]]; then
         say "stopping the stack"
         if ((delete_data)); then
-            compose "$config_dir" down --remove-orphans || true
+            compose "$config_dir" down --volumes --remove-orphans || true
         else
             compose "$config_dir" down --remove-orphans || true
         fi
@@ -674,6 +655,10 @@ main() {
     status) status ;;
     logs) show_logs "${rest[@]}" ;;
     upgrade) upgrade ;;
+    restore)
+        [[ ${#rest[@]} -eq 1 ]] || fail "usage: gitrakz restore <backup.tar.gz>"
+        restore_data "${rest[0]}"
+        ;;
     uninstall) uninstall ;;
     help | --help | -h) usage ;;
     *) fail "unknown command: $command (try: gitrakz help)" ;;
@@ -704,22 +689,19 @@ main() {
 
 	ensure_gh
 
-	local previous_image new_tag new_image legacy_volume
+	local previous_image new_tag new_image
 	previous_image="$(env_pinned_image "$TARGET_CONFIG_DIR/.env")"
 	new_tag="$(resolve_latest_tag)"
 	new_image="$IMAGE_REPO:$new_tag"
 
 	say "installing gitrakz ($MODE mode), pinning to the latest release $new_tag"
 	prepare_config_dir
-	legacy_volume="$(legacy_data_volume "$TARGET_CONFIG_DIR")"
-	prepare_data_dir
-	say "pulling $new_image"
-	docker pull "$new_image"
-	migrate_legacy_data "$legacy_volume" "$new_image"
 	write_config "$new_tag"
 	apply_config_permissions
 	write_command
 	warn_user_path
+	say "pulling $new_image"
+	docker pull "$new_image"
 
 	if [[ -n "$previous_image" && "$previous_image" != "$new_image" ]]; then
 		if docker image rm "$previous_image" >/dev/null 2>&1; then
