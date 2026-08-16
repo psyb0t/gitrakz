@@ -4,6 +4,19 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.6.1 — 2026-08-16
+
+- **Visible, portable SQLite data.** Installed Compose stacks now bind-mount
+  `data/` beside their `docker-compose.yml` instead of hiding the database in a
+  Docker-managed named volume. Back up or move that directory with the rest of
+  the install directory.
+- **Safe upgrade.** Installing or upgrading an existing stack copies its named
+  volume data into the new `data/` directory before switching mounts; the old
+  volume remains untouched as a rollback copy.
+- **Simpler configuration.** `GITRAKZ_DB_PATH` is no longer a public `.env`
+  setting. `/data` remains an internal container mountpoint, while the wrapper
+  maps the service to the host account that owns the persisted directory.
+
 ## v0.6.0 — 2026-08-16
 
 - **Installer: per-user and system-wide modes.** `install.sh` now installs

@@ -41,14 +41,15 @@ FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec4
 # runtime (it authenticates via the GH_TOKEN env var — no interactive login).
 RUN apk --no-cache add ca-certificates github-cli
 
-# Create non-root user
-RUN adduser -D -s /bin/sh appuser
+# The documented host bind mount defaults to UID/GID 1000. Keep the image's
+# non-root runtime identity stable so an installer's ./data is writable.
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser -s /bin/sh appuser
 
-# The DB lives on a volume mounted at /data. Own it as appuser so a FRESH named
-# volume initializes writable for the non-root user — Docker copies this dir's
-# ownership into an empty volume on first mount.
+# /data is the container-side mountpoint for the host install directory's
+# ./data. It is deliberately not declared as a Docker volume: persistence is
+# explicit and visible on the host.
 RUN mkdir -p /data && chown appuser:appuser /data
-VOLUME /data
 
 # Set working directory
 WORKDIR /app

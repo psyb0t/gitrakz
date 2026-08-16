@@ -6,6 +6,7 @@ coverage.html
 coverage.txt
 coverage_filtered.txt
 build
+data/
 CLAUDE.md
 .env
 research_files

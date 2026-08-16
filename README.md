@@ -100,7 +100,8 @@ gitrakz uninstall        # remove the command; asks before deleting your data
 ```
 
 Configuration lives in `~/.config/gitrakz/.env` (or `/etc/gitrakz/.env` for a
-system-wide install) — **edit it right after install** to
+system-wide install), and the SQLite database lives beside it in `data/` —
+not hidden in a Docker-managed volume. **Edit `.env` right after install** to
 change the published port (`GITRAKZ_PUBLISH_PORT`), expose it beyond localhost
 (`GITRAKZ_PUBLISH_ADDR`), set an API bearer token (`GITRAKZ_AUTH_TOKEN`), track a
 different user (`GITRAKZ_GH_USER`), or enable the optional LLM features
@@ -114,14 +115,18 @@ token straight through — that is the only auth gitrakz needs (it runs `gh` ins
 the container with it):
 
 ```bash
+mkdir -p gitrakz-data
 docker run --rm -p 8080:8080 \
+  --user "$(id -u):$(id -g)" \
   -e GH_TOKEN="$(gh auth token)" \
-  -v gitrakz-data:/data \
-  psyb0t/gitrakz:v0.6.0 run          # pin a release tag, not :latest
+  -v "$PWD/gitrakz-data:/data" \
+  psyb0t/gitrakz:v0.6.1 run          # pin a release tag, not :latest
 ```
 
-Add any `-e GITRAKZ_*` from the [Configuration](#configuration) table. Or run the
-same pinned stack straight from the compose file the installer wrote:
+That `gitrakz-data/` folder is the database on your machine: copy or back it up
+like any other application data. Add any `-e GITRAKZ_*` from the
+[Configuration](#configuration) table. Or run the same pinned stack straight
+from the compose file the installer wrote:
 
 ```bash
 export GH_TOKEN="$(gh auth token)"
@@ -156,7 +161,6 @@ All configuration is environment variables, prefixed `GITRAKZ_`. Everything has 
 |---|---|---|
 | `GITRAKZ_GH_USER` | *(gh login)* | The GitHub user whose activity is tracked. Defaults to the `gh` CLI's authenticated login, so leave it unset to track yourself; set it to track another user. |
 | `GITRAKZ_AUTH_TOKEN` | *(empty)* | When set, `/api` requires `Authorization: Bearer <token>`. Empty = open (single-user / trusted network). |
-| `GITRAKZ_DB_PATH` | `/data/gitrakz.db` | SQLite file. Migrations run on boot. |
 | `GITRAKZ_SYNC_SINCE` | `2025-01-01` | Earliest activity to pull on a first sync. |
 | `GITRAKZ_SYNC_INTERVAL` | `30m` | Background incremental-sync cadence. |
 | `GITRAKZ_SESSION_GAP` | `30m` | Idle gap that starts a new work session. |
