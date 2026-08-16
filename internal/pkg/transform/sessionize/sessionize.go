@@ -41,8 +41,6 @@ type primitive struct {
 
 // New builds a sessionize primitive from its JSON params. Empty params
 // fall back to defaultGapSeconds / defaultLeadInSeconds.
-//
-
 func New(params []byte) (transform.Primitive, error) {
 	cfg := paramsConfig{
 		GapSeconds:    defaultGapSeconds,

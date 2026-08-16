@@ -25,7 +25,14 @@ every field is one of the building blocks below.
 the primitives below) and an optional "params" object matching that
 primitive's own configuration shape:
   sessionize, exclude-off-time, split-by-active-days, group-by, aggregate,
-  rate, passthrough, describe-work
+  rate, passthrough, describe-work, llm
+
+"llm" runs a user-authored instruction over the pipeline's current data and
+writes the model's response as a single row. Its params are {"instruction":
+string, "schema": object, "name": string}: "instruction" tells the model
+what to do with the data, an optional "schema" requests JSON-schema-
+constrained structured output instead of plain text, and an optional
+"name" sets the output row's key (defaults to "llm").
 
 "layout" is an ordered list of display blocks rendering the transform's
 output. Each entry has "type" (one of the block types below), an optional
@@ -43,12 +50,11 @@ fences.`
 // structured-decode the model's reply directly into template.Template, per
 // elelem's RunInto (schema derived from the struct's own json tags).
 type llmComposer struct {
-	client *elelem.Client
-	model  elelem.Model
+	runtime *llmRuntime
 }
 
-func newLLMComposer(client *elelem.Client, model elelem.Model) *llmComposer {
-	return &llmComposer{client: client, model: model}
+func newLLMComposer(runtime *llmRuntime) *llmComposer {
+	return &llmComposer{runtime: runtime}
 }
 
 // GenerateTemplate drafts a template.Template from description. Nothing is
@@ -62,8 +68,12 @@ func (c *llmComposer) GenerateTemplate(
 ) (template.Template, error) {
 	var tmpl template.Template
 
-	_, err := elelem.NewRequest(c.client).
-		WithModel(c.model).
+	req, err := c.runtime.configure(ctx, elelem.NewRequest(c.runtime.client))
+	if err != nil {
+		return template.Template{}, err
+	}
+
+	_, err = req.
 		WithPrompt(elelem.NewPrompt().
 			WithSystem(generateTemplateSystemPrompt).
 			UserText(description)).

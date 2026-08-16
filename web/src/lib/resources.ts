@@ -5,6 +5,8 @@
 import { apiFetch, apiFetchBlob, type BlobResult } from "$lib/api";
 import {
   API_EXPORT,
+  API_LLM_MODELS,
+  API_LLM_SETTINGS,
   API_OWNERS,
   API_REPOS,
   API_RUN,
@@ -30,6 +32,9 @@ import type {
   Document,
   ExportRequest,
   Filter,
+  LLMModel,
+  LLMSettings,
+  LLMSettingsInput,
   RunRequest,
   SessionsResponse,
   SyncJob,
@@ -131,4 +136,21 @@ export function runTemplate(req: RunRequest): Promise<Document> {
 
 export function exportDocument(req: ExportRequest): Promise<BlobResult> {
   return apiFetchBlob(API_EXPORT, { method: "POST", body: req });
+}
+
+export function listLLMModels(): Promise<LLMModel[]> {
+  return apiFetch<LLMModel[]>(API_LLM_MODELS);
+}
+
+export function getLLMSettings(): Promise<LLMSettings> {
+  return apiFetch<LLMSettings>(API_LLM_SETTINGS);
+}
+
+export function updateLLMSettings(
+  input: LLMSettingsInput,
+): Promise<LLMSettings> {
+  return apiFetch<LLMSettings>(API_LLM_SETTINGS, {
+    method: "PUT",
+    body: input,
+  });
 }

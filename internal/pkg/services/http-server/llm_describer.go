@@ -8,14 +8,13 @@ import (
 )
 
 // llmDescriber implements describework.LLMClient over an elelem client — a
-// single, non-streaming completion per prompt.
+// single, non-streaming completion per prompt, using the stored LLM settings.
 type llmDescriber struct {
-	client *elelem.Client
-	model  elelem.Model
+	runtime *llmRuntime
 }
 
-func newLLMDescriber(client *elelem.Client, model elelem.Model) *llmDescriber {
-	return &llmDescriber{client: client, model: model}
+func newLLMDescriber(runtime *llmRuntime) *llmDescriber {
+	return &llmDescriber{runtime: runtime}
 }
 
 // Describe sends prompt as the sole user turn and returns the model's text.
@@ -23,8 +22,12 @@ func (d *llmDescriber) Describe(
 	ctx context.Context,
 	prompt string,
 ) (string, error) {
-	response, err := elelem.NewRequest(d.client).
-		WithModel(d.model).
+	req, err := d.runtime.configure(ctx, elelem.NewRequest(d.runtime.client))
+	if err != nil {
+		return "", err
+	}
+
+	response, err := req.
 		WithPrompt(elelem.NewPrompt().UserText(prompt)).
 		WithStreaming(false).
 		Run(ctx)

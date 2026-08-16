@@ -49,8 +49,8 @@ func (s *Server) runTemplateByID(
 // rendered Document.
 //
 // RunRequest carries only a templateId (no inline template field in the
-// generated schema), so a template is always resolved by id — there is
-// no inline-template path here, unlike ExportDocument's inline document.
+// generated schema); unlike ExportDocument, there is no inline-document
+// path here.
 func (s *Server) RunTemplate(
 	ctx context.Context,
 	request api.RunTemplateRequestObject,

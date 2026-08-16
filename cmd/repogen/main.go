@@ -33,6 +33,7 @@ func main() {
 		models.Document{},
 		models.Event{},
 		models.LLMCache{},
+		models.LLMSettings{},
 		models.SyncState{},
 		models.Template{},
 	)

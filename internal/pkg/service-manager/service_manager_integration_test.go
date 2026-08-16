@@ -126,22 +126,13 @@ func TestIntegration_RetryWithDependencies(
 	assert.True(t, tracker.has("api"), "api should have run")
 }
 
-// This test deliberately does NOT assert that db reaches Run before api.
-//
-// It used to, and that assertion was wrong about once in 600 runs — failing
-// with api recorded first. Neither mock here implements ReadyNotifier, and that
-// interface's own contract says a service which does not is "considered ready
-// immediately after their goroutine is launched". The manager therefore orders
-// the LAUNCH of the groups, not the moment each service enters Run: db's
-// goroutine is started and has signalled before api's goroutine exists, but it
-// can be descheduled between that signal and its own Run body, letting api
-// record first.
-//
-// So the ordering guarantee is real only for services that signal readiness,
-// and it is asserted where it actually holds — TestServiceManager_ReadyNotifier
-// drives two ReadyMockServices and checks the exact sequence. Asserting it here
-// too was not extra coverage; it was a coin flip weighted heavily enough to
-// pass almost always.
+// This test deliberately does NOT assert that db reaches Run before api:
+// that assertion flaked about once in 600 runs, since a service without
+// ReadyNotifier is "ready" as soon as its goroutine launches — the
+// manager orders group LAUNCH, not entry into Run, so a descheduled db
+// can let api record first. The real ordering guarantee (for services
+// that do signal readiness) is asserted in
+// TestServiceManager_ReadyNotifier instead.
 
 func TestIntegration_AllowedFailureWithDependencies(
 	t *testing.T,

@@ -7,31 +7,33 @@ import (
 	"github.com/psyb0t/aichteeteapee/serbewr/middleware"
 )
 
-// apiMountPattern / spaMountPattern are Go 1.22+ ServeMux wildcard
-// patterns, both registered with NO method restriction (RouteConfig.Method
-// left empty) — net/http.ServeMux panics at registration time on two
-// patterns whose specificity disagrees across the method and path axes
-// (e.g. an any-method "/api/v1/{path...}" vs a GET-only "/{path...}"), so
-// spaHandler itself rejects non-GET/HEAD (see newSPAHandler) rather than
-// the route restricting the method. The OpenAPI paths are version-less;
-// api.HandlerWithOptions is given BaseURL "/api/v1" (see http_server.go),
-// so it registers "/api/v1/..." into every route (see
-// internal/pkg/http/api/api.gen.go), and apiMountPattern forwards the raw
-// request into that sub-handler unmodified — no path stripping. ServeMux
-// prefers the more specific "/api/v1/..." pattern over the catch-all SPA
-// fallback, so anything under /api/v1/ never reaches spaMountPattern.
+// apiMountPattern / mcpMountPattern / spaMountPattern are Go 1.22+ ServeMux
+// patterns, all registered with no method restriction: ServeMux panics at
+// registration if two patterns disagree in specificity across the method
+// and path axes (e.g. any-method "/api/v1/{path...}" vs GET-only
+// "/{path...}"), so spaHandler rejects non-GET/HEAD itself instead (see
+// newSPAHandler). api.HandlerWithOptions gets BaseURL "/api/v1" (see
+// http_server.go), so it registers "/api/v1/..." (see
+// internal/pkg/http/api/api.gen.go) and apiMountPattern forwards requests
+// into it unmodified. mcpMountPattern is an exact, single-endpoint match —
+// the MCP streamable HTTP transport serves GET/POST/DELETE at one URL, not
+// a subtree. ServeMux prefers the more specific patterns, so neither
+// /api/v1/ nor /mcp ever falls through to spaMountPattern.
 const (
 	apiBaseURL      = "/api/v1"
 	apiMountPattern = apiBaseURL + "/{path...}"
+	mcpMountPattern = "/mcp"
 	spaMountPattern = "/{path...}"
 )
 
 // newRouter builds the serbewr.Router gitrakz serves: the generated API
-// under /api/v1/ (Bearer-gated when authToken is set) and the embedded SPA
-// everywhere else.
+// under /api/v1/ and the MCP server at /mcp (both Bearer-gated when
+// authToken is set, sharing the same gate as the rest of the API), and the
+// embedded SPA everywhere else.
 func newRouter(
 	authToken string,
 	apiHandler http.Handler,
+	mcpHandler http.Handler,
 	spaHandler http.Handler,
 ) *serbewr.Router {
 	var apiMiddlewares []middleware.Middleware
@@ -57,6 +59,7 @@ func newRouter(
 				Middlewares: apiMiddlewares,
 				Routes: []serbewr.RouteConfig{
 					{Path: apiMountPattern, Handler: apiHandler.ServeHTTP},
+					{Path: mcpMountPattern, Handler: mcpHandler.ServeHTTP},
 				},
 			},
 			{

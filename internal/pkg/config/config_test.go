@@ -23,7 +23,6 @@ func TestLoad_Defaults(t *testing.T) {
 	assert.Equal(t, 25*time.Minute, cfg.SessionLeadIn)
 	assert.Empty(t, cfg.ElelemType)
 	assert.Empty(t, cfg.ElelemBaseURL)
-	assert.Empty(t, cfg.ElelemModel)
 	assert.Empty(t, cfg.ElelemAPIKey)
 }
 
@@ -37,7 +36,6 @@ func TestLoad_Overrides(t *testing.T) {
 	t.Setenv("GITRAKZ_SESSION_LEADIN", "10m")
 	t.Setenv("GITRAKZ_ELELEM_TYPE", "anthropic")
 	t.Setenv("GITRAKZ_ELELEM_BASE_URL", "https://llm.example.com")
-	t.Setenv("GITRAKZ_ELELEM_MODEL", "gpt-4")
 	t.Setenv("GITRAKZ_ELELEM_API_KEY", "llm-key")
 
 	cfg, err := Load()
@@ -52,7 +50,6 @@ func TestLoad_Overrides(t *testing.T) {
 	assert.Equal(t, 10*time.Minute, cfg.SessionLeadIn)
 	assert.Equal(t, "anthropic", cfg.ElelemType)
 	assert.Equal(t, "https://llm.example.com", cfg.ElelemBaseURL)
-	assert.Equal(t, "gpt-4", cfg.ElelemModel)
 	assert.Equal(t, "llm-key", cfg.ElelemAPIKey)
 }
 

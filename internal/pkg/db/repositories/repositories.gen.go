@@ -16,12 +16,13 @@ import (
 )
 
 var (
-	Q         = new(Query)
-	Document  *document
-	Event     *event
-	LLMCache  *lLMCache
-	SyncState *syncState
-	Template  *template
+	Q           = new(Query)
+	Document    *document
+	Event       *event
+	LLMCache    *lLMCache
+	LLMSettings *lLMSettings
+	SyncState   *syncState
+	Template    *template
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -29,29 +30,32 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	Document = &Q.Document
 	Event = &Q.Event
 	LLMCache = &Q.LLMCache
+	LLMSettings = &Q.LLMSettings
 	SyncState = &Q.SyncState
 	Template = &Q.Template
 }
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 	return &Query{
-		db:        db,
-		Document:  newDocument(db, opts...),
-		Event:     newEvent(db, opts...),
-		LLMCache:  newLLMCache(db, opts...),
-		SyncState: newSyncState(db, opts...),
-		Template:  newTemplate(db, opts...),
+		db:          db,
+		Document:    newDocument(db, opts...),
+		Event:       newEvent(db, opts...),
+		LLMCache:    newLLMCache(db, opts...),
+		LLMSettings: newLLMSettings(db, opts...),
+		SyncState:   newSyncState(db, opts...),
+		Template:    newTemplate(db, opts...),
 	}
 }
 
 type Query struct {
 	db *gorm.DB
 
-	Document  document
-	Event     event
-	LLMCache  lLMCache
-	SyncState syncState
-	Template  template
+	Document    document
+	Event       event
+	LLMCache    lLMCache
+	LLMSettings lLMSettings
+	SyncState   syncState
+	Template    template
 }
 
 func (q *Query) Available() bool { return q.db != nil }
@@ -60,12 +64,13 @@ func (q *Query) UnderlyingDB() *gorm.DB { return q.db }
 
 func (q *Query) clone(db *gorm.DB) *Query {
 	return &Query{
-		db:        db,
-		Document:  q.Document.clone(db),
-		Event:     q.Event.clone(db),
-		LLMCache:  q.LLMCache.clone(db),
-		SyncState: q.SyncState.clone(db),
-		Template:  q.Template.clone(db),
+		db:          db,
+		Document:    q.Document.clone(db),
+		Event:       q.Event.clone(db),
+		LLMCache:    q.LLMCache.clone(db),
+		LLMSettings: q.LLMSettings.clone(db),
+		SyncState:   q.SyncState.clone(db),
+		Template:    q.Template.clone(db),
 	}
 }
 
@@ -79,30 +84,33 @@ func (q *Query) WriteDB() *Query {
 
 func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 	return &Query{
-		db:        db,
-		Document:  q.Document.replaceDB(db),
-		Event:     q.Event.replaceDB(db),
-		LLMCache:  q.LLMCache.replaceDB(db),
-		SyncState: q.SyncState.replaceDB(db),
-		Template:  q.Template.replaceDB(db),
+		db:          db,
+		Document:    q.Document.replaceDB(db),
+		Event:       q.Event.replaceDB(db),
+		LLMCache:    q.LLMCache.replaceDB(db),
+		LLMSettings: q.LLMSettings.replaceDB(db),
+		SyncState:   q.SyncState.replaceDB(db),
+		Template:    q.Template.replaceDB(db),
 	}
 }
 
 type queryCtx struct {
-	Document  IDocumentDo
-	Event     IEventDo
-	LLMCache  ILLMCacheDo
-	SyncState ISyncStateDo
-	Template  ITemplateDo
+	Document    IDocumentDo
+	Event       IEventDo
+	LLMCache    ILLMCacheDo
+	LLMSettings ILLMSettingsDo
+	SyncState   ISyncStateDo
+	Template    ITemplateDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
 	return &queryCtx{
-		Document:  q.Document.WithContext(ctx),
-		Event:     q.Event.WithContext(ctx),
-		LLMCache:  q.LLMCache.WithContext(ctx),
-		SyncState: q.SyncState.WithContext(ctx),
-		Template:  q.Template.WithContext(ctx),
+		Document:    q.Document.WithContext(ctx),
+		Event:       q.Event.WithContext(ctx),
+		LLMCache:    q.LLMCache.WithContext(ctx),
+		LLMSettings: q.LLMSettings.WithContext(ctx),
+		SyncState:   q.SyncState.WithContext(ctx),
+		Template:    q.Template.WithContext(ctx),
 	}
 }
 

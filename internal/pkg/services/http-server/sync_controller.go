@@ -11,12 +11,10 @@ import (
 	"github.com/psyb0t/gitrakz/internal/pkg/http/api"
 )
 
-// PerOwner summary keys. ghsync.Syncer.Sync only returns an aggregate
-// SyncResult (repos scanned, events upserted, per-repo error strings) —
-// nothing broken down by owner — so PerOwner carries that aggregate under
-// these descriptive keys rather than a genuine per-owner breakdown, which
-// would need a change to ghsync.Syncer's return shape (out of this
-// service's scope; ghsync is DONE per the wiring brief).
+// PerOwner summary keys. ghsync.Syncer.Sync returns only an aggregate
+// SyncResult (repos scanned, events upserted, per-repo error strings), so
+// PerOwner carries that aggregate under these keys — it is not a genuine
+// per-owner breakdown.
 const (
 	syncSummaryKeyReposScanned   = "reposScanned"
 	syncSummaryKeyEventsUpserted = "eventsUpserted"

@@ -16,8 +16,8 @@ const daytimeWindowParams = `{
 }`
 
 // wrapWindowParams is a 23:00-06:00 window that wraps past midnight.
-//
-// on the digit mix, not an actual credential.
+// gosec flags this JSON blob based on its digit mix, not an actual
+// credential.
 //
 //nolint:gosec // JSON test fixture, gosec's entropy check false-positives
 const wrapWindowParams = `{

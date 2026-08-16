@@ -38,6 +38,8 @@ const (
 
 // Store is the persistence surface the HTTP handlers need. *db.Store
 // satisfies it in production; tests supply an in-memory fake.
+//
+//nolint:dupl // fakeStore mirrors this interface field-for-field
 type Store interface {
 	ListOwners(ctx context.Context) ([]string, error)
 	ListRepos(ctx context.Context, owner string) ([]string, error)
@@ -49,6 +51,8 @@ type Store interface {
 	GetTemplate(ctx context.Context, id string) (template.Template, error)
 	SaveTemplate(ctx context.Context, tmpl template.Template) error
 	DeleteTemplate(ctx context.Context, id string) error
+	GetLLMSettings(ctx context.Context) (db.LLMSettings, error)
+	SaveLLMSettings(ctx context.Context, settings db.LLMSettings) error
 }
 
 // Engine runs a template's transform pipeline over a selected timeline
@@ -88,6 +92,12 @@ type LLMComposer interface {
 	) (template.Template, error)
 }
 
+// LLMModelLister lists the provider's available models with their capability
+// flags. The service layer wires this to elelem.
+type LLMModelLister interface {
+	ListModels(ctx context.Context) ([]api.LLMModel, error)
+}
+
 // Deps collects every dependency Server needs to satisfy
 // api.StrictServerInterface.
 type Deps struct {
@@ -96,6 +106,7 @@ type Deps struct {
 	Sessionizer    Sessionizer
 	SyncController SyncController
 	LLMComposer    LLMComposer
+	LLMModelLister LLMModelLister
 }
 
 // Server implements api.StrictServerInterface entirely against the

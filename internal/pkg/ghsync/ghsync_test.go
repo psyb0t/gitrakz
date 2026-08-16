@@ -12,9 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockGHClient is a hand-rolled GHClient test double — each test wires the
-// exact behavior it needs via the two func fields instead of pulling in a
-// generated mock.
+// mockGHClient is a hand-rolled GHClient test double; each test wires
+// the exact behavior it needs via the two func fields.
 type mockGHClient struct {
 	authUserFn func(ctx context.Context) (string, error)
 	discoverFn func(ctx context.Context, user string) ([]RepoRef, error)

@@ -135,10 +135,10 @@ func (s *Server) ListTimeline(
 
 // ListSessions derives per-owner work sessions over the filtered range.
 //
-// The Gap query parameter (a per-request sessionization override) is not
-// forwarded: the Sessionizer contract this handler is built against takes
-// only a timeline, so gap tuning is the service layer's concern when it
-// wires Sessionizer to the sessionize primitive, not this handler's.
+// The Gap query parameter (a per-request sessionization override) is
+// unused here — the Sessionizer contract takes only a timeline; gap
+// tuning belongs to the service layer that wires Sessionizer to the
+// sessionize primitive.
 func (s *Server) ListSessions(
 	ctx context.Context,
 	request api.ListSessionsRequestObject,

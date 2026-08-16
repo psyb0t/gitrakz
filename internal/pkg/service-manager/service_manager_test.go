@@ -21,8 +21,8 @@ var (
 
 const (
 	// runHangGuard bounds a Run that should have been ended by Stop. It is
-	// deliberately far longer than any real wait: a test that reaches it has
-	// hung, and every legitimate wait here is synchronized explicitly instead.
+	// far longer than any real wait: reaching it means a hung test, since
+	// every legitimate wait here is explicit synchronization, not a sleep.
 	runHangGuard = 30 * time.Second
 
 	// startedPollInterval is how often the start-group condition is rechecked.
@@ -30,18 +30,11 @@ const (
 )
 
 // waitForStartedServices blocks until the manager has registered `want`
-// services into start groups.
-//
-// That is the precondition Stop actually has: it iterates startGroups, and a
-// group lands there only after every service goroutine has launched and
-// waitGroupReady has returned. A Stop arriving before the append finds nothing
-// to stop, so every "should have Stop called" assertion fails.
-//
-// This replaced a time.Sleep that stood in for the same condition. The sleep
-// was load-bearing rather than cosmetic — setting it to zero fails these tests
-// outright — which meant any load that delayed the manager past it failed the
-// suite for reasons unrelated to the code under test. It read as a flake in a
-// consumer's CI, one package deep in an unrelated repo.
+// services into start groups — the same precondition Stop relies on
+// (startGroups fills only once every service goroutine has launched). A
+// Stop arriving earlier finds nothing to stop, failing every "should have
+// Stop called" assertion. This replaces a time.Sleep that caused real CI
+// flakes when the manager was delayed past a fixed wait.
 func waitForStartedServices(t *testing.T, sm *ServiceManager, want int) {
 	t.Helper()
 
@@ -59,13 +52,10 @@ func waitForStartedServices(t *testing.T, sm *ServiceManager, want int) {
 		"manager never registered %d service(s) into a start group", want)
 }
 
-// waitForRunCalled blocks until every mock service has entered Run. Waiting for
-// it IS the assertion that they all started, so there is nothing left to check
-// afterwards.
-//
-// Like waitForStartedServices this replaced a sleep, and the same proof
-// applies: zeroing that sleep failed these tests outright, so it was the
-// synchronization rather than a courtesy pause.
+// waitForRunCalled blocks until every mock service has entered Run —
+// waiting for it IS the assertion, so there is nothing further to check.
+// Like waitForStartedServices, this replaces a sleep that was
+// load-bearing, not cosmetic (zeroing it failed the tests outright).
 func waitForRunCalled(t *testing.T, services []Service) {
 	t.Helper()
 
@@ -155,14 +145,9 @@ func TestServiceManager_Add(t *testing.T) {
 }
 
 func TestServiceManager_Run(t *testing.T) {
-	// contextSetup is gone. Three rows used it to spawn a goroutine that slept
-	// 10ms and then cancelled, which raced the manager: if the services had not
-	// started inside that window the run ended before they ever reached Run,
-	// and the "should have Run called" assertion failed for reasons that had
-	// nothing to do with the manager. The other two rows returned a plain
-	// WithCancel, so the field's only real content WAS the race. Cancellation
-	// now happens in the stopMethod switch below, after the wait — which is
-	// what "context" was always supposed to mean.
+	// Cancellation happens in the stopMethod switch below, after
+	// waitForRunCalled — a previous sleep-then-cancel setup raced the
+	// manager and flaked when services had not started yet.
 	testCases := []struct {
 		name        string
 		services    []Service
@@ -302,12 +287,11 @@ func TestServiceManager_Stop(t *testing.T) {
 			// First run the services if there are any, so the manager
 			// registers them and Stop has something to stop.
 			if len(tc.services) > 0 {
-				// A hang guard, NOT the synchronization. It used to be 10ms,
-				// which made it both: the deadline could fire before Stop was
-				// even called, ending the run for the wrong reason. Stop
-				// cancels the manager's context and closes each mock's stopCh,
-				// so Run returns on its own and this bound is never reached in
-				// a passing test.
+				// A hang guard, not synchronization: Stop cancels the context
+				// and closes each mock's stopCh, so Run returns well before
+				// this bound in a passing test. (It used to be 10ms and
+				// doubled as a deadline, which could fire before Stop was
+				// even called.)
 				runCtx, cancel := context.WithTimeout(ctx, runHangGuard)
 				defer cancel()
 
@@ -904,10 +888,9 @@ const runReturnTimeout = 10 * time.Second
 // more than one non-allowed service fails at the same time.
 //
 // errCh has capacity 1 and Run receives from it at most once.
-// handleServiceError used a plain blocking send, so a later concurrent failure
-// parked on that
-// send forever, and Run's `defer s.wg.Wait()` then never returned — a hung
-// process instead of the reported error the README promises. A bare send is not
+// handleServiceError used to block on a plain send, so a later concurrent
+// failure parked forever and Run's `defer s.wg.Wait()` never returned — a
+// hung process instead of the reported error. A blocking send also is not
 // selectable, so context cancellation could not rescue it either.
 func TestServiceManager_RunWithConcurrentFailures(t *testing.T) {
 	testCases := []struct {

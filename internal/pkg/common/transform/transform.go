@@ -84,8 +84,6 @@ func (r *Registry) Register(name string, f Factory) {
 
 // Build constructs the named primitive, or returns ErrUnknownPrimitive wrapped
 // with the offending name.
-//
-
 func (r *Registry) Build(name string, params []byte) (Primitive, error) {
 	f, ok := r.factories[name]
 	if !ok {

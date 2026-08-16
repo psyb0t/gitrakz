@@ -33,10 +33,10 @@ var webDistFS embed.FS
 // doesn't match a real file under web/dist falls back to index.html, so
 // the client-side router resolves deep links like /templates/foo.
 //
-// The route it's mounted on (see router.go) carries no method restriction
-// — net/http.ServeMux panics on registering a GET-only pattern alongside
-// the any-method /api/v1/{path...} pattern, since neither dominates the
-// other's specificity — so this handler enforces GET/HEAD itself instead.
+// The route it's mounted on (see router.go) carries no method restriction:
+// ServeMux would panic registering a GET-only pattern alongside the
+// any-method /api/v1/{path...} pattern, so this handler enforces GET/HEAD
+// itself.
 func newSPAHandler() (http.Handler, error) {
 	sub, err := fs.Sub(webDistFS, webDistRoot)
 	if err != nil {

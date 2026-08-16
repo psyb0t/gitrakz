@@ -74,8 +74,7 @@ func sessionToAPI(s types.Session) api.Session {
 		DurationHours: float64(s.DurationSeconds) / secondsPerHour,
 		// types.Session carries no per-event breakdown (see
 		// transform/sessionize), so the required "events" field is
-		// always an empty, non-nil slice rather than the individual
-		// events that made up the session.
+		// always an empty, non-nil slice.
 		Events: []api.Event{},
 	}
 }

@@ -29,6 +29,8 @@ tags:
     description: Deterministic transform-pipeline execution
   - name: export
     description: Raw or templated document export
+  - name: llm
+    description: LLM provider models and summarization settings
 paths:
   /owners:
     get:
@@ -300,6 +302,60 @@ paths:
               schema:
                 type: string
                 format: binary
+        default:
+          $ref: "#/components/responses/Error"
+
+  /llm/models:
+    get:
+      operationId: listLLMModels
+      summary: List available LLM models with capabilities
+      tags:
+        - llm
+      responses:
+        "200":
+          description: Available models and their capability flags.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LLMModel"
+        default:
+          $ref: "#/components/responses/Error"
+
+  /llm/settings:
+    get:
+      operationId: getLLMSettings
+      summary: Get the current LLM settings
+      tags:
+        - llm
+      responses:
+        "200":
+          description: The stored LLM settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LLMSettings"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: updateLLMSettings
+      summary: Update the LLM settings
+      tags:
+        - llm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LLMSettingsInput"
+      responses:
+        "200":
+          description: The updated LLM settings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LLMSettings"
         default:
           $ref: "#/components/responses/Error"
 
@@ -725,3 +781,49 @@ components:
           type:
             - object
             - "null"
+
+    LLMModel:
+      type: object
+      required:
+        - id
+        - supportsReasoningEffort
+        - maxReasoningEffort
+        - supportsSamplingParams
+        - contextSize
+      properties:
+        id:
+          type: string
+        supportsReasoningEffort:
+          type: boolean
+        maxReasoningEffort:
+          type: string
+          description: Highest supported reasoning effort, or "" when none.
+        supportsSamplingParams:
+          type: boolean
+          description: Whether the model accepts temperature and top-p.
+        contextSize:
+          type: integer
+
+    LLMSettingsInput:
+      type: object
+      required:
+        - model
+      properties:
+        model:
+          type: string
+        reasoningEffort:
+          type: string
+        temperature:
+          type: number
+
+    LLMSettings:
+      type: object
+      required:
+        - model
+      properties:
+        model:
+          type: string
+        reasoningEffort:
+          type: string
+        temperature:
+          type: number

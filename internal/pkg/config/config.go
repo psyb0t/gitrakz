@@ -22,7 +22,6 @@ type Config struct {
 
 	ElelemType    string `env:"GITRAKZ_ELELEM_TYPE"`
 	ElelemBaseURL string `env:"GITRAKZ_ELELEM_BASE_URL"`
-	ElelemModel   string `env:"GITRAKZ_ELELEM_MODEL"`
 	ElelemAPIKey  string `env:"GITRAKZ_ELELEM_API_KEY"`
 }
 

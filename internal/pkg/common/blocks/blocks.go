@@ -156,11 +156,9 @@ func NewChart(
 }
 
 // unmarshalPayload decodes block.Data into T after checking block.Type
-// matches want, wrapping ErrBlockTypeMismatch on a type mismatch.
-//
-// struct at every call site (Heading, Table, ...), never a real interface.
-//
-
+// matches want, wrapping ErrBlockTypeMismatch on a type mismatch. T is
+// always a concrete payload struct (Heading, Table, ...) at each call
+// site, never a real interface.
 func unmarshalPayload[T any](block Block, want BlockType) (T, error) {
 	var payload T
 

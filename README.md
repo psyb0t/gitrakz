@@ -22,6 +22,7 @@ A template is not a saved prompt — it is a saved **composition**: a form, a tr
 - [Configuration](#configuration)
 - [Building blocks and templates](#building-blocks-and-templates)
 - [HTTP API](#http-api)
+- [MCP](#mcp)
 - [Agent integrations](#agent-integrations)
 - [Development](#development)
 - [Security notes](#security-notes)
@@ -127,7 +128,7 @@ the container with it):
 docker run --rm -p 8080:8080 \
   -e GH_TOKEN="$(gh auth token)" \
   -v gitrakz-data:/data \
-  psyb0t/gitrakz:v0.6.3 run          # pin a release tag, not :latest
+  psyb0t/gitrakz:v0.7.0 run          # pin a release tag, not :latest
 ```
 
 Add any `-e GITRAKZ_*` from the [Configuration](#configuration) table. Or run
@@ -172,8 +173,11 @@ All configuration is environment variables, prefixed `GITRAKZ_`. Everything has 
 | `GITRAKZ_SESSION_LEADIN` | `25m` | Padding added before a session's first event (pre-commit work). |
 | `GITRAKZ_ELELEM_TYPE` | `openai` | LLM provider driver — `openai` (also any OpenAI-compatible endpoint) or `anthropic`. |
 | `GITRAKZ_ELELEM_BASE_URL` | *(empty)* | API host for the provider, used by `describe-work`, prose blocks and template generation. |
-| `GITRAKZ_ELELEM_MODEL` | *(empty)* | Model name for the LLM endpoint. |
 | `GITRAKZ_ELELEM_API_KEY` | *(empty)* | API key for the LLM endpoint. |
+
+The model, reasoning effort, and temperature are configured in the web UI's
+Settings page (chosen from the provider's available models) and stored in the
+database.
 
 Logging follows the standard `LOG_LEVEL` / `LOG_FORMAT` / `LOG_ADD_SOURCE` env vars. Every request is logged with a `requestId` that the SPA also echoes to the browser console, so a full request reconstructs across both sides.
 
@@ -189,7 +193,7 @@ template = { id, name, description,
              exports }   // [csv, pdf, json]
 ```
 
-**Transform primitives** (compute over the timeline): `sessionize`, `exclude-off-time`, `split-by-active-days`, `group-by`, `aggregate`, `rate`, `passthrough`, and the LLM-backed `describe-work` (cached in the DB by prompt/config version).
+**Transform primitives** (compute over the timeline): `sessionize`, `exclude-off-time`, `split-by-active-days`, `group-by`, `aggregate`, `rate`, `passthrough`, the LLM-backed `describe-work` (cached in the DB by prompt/config version), and `llm` — a user-authored LLM step that runs a caller-supplied instruction over the pipeline's current data and writes the response as a row, optionally constrained to a caller-supplied JSON schema for structured output.
 
 **Display blocks** (render the result): `heading`, `text`, `list`, `table`, `keyvalue`, `metric`, `code`, `chart`.
 
@@ -218,12 +222,32 @@ POST /api/v1/export              # export a document / run to csv|pdf|json
 
 The OpenAPI spec at `api/api.yml` is the source of truth; the server interface and types are generated from it.
 
+## MCP
+
+Every capability above is also exposed as an MCP (Model Context Protocol) tool, so an MCP-speaking client (Claude Code, etc.) can drive gitrakz directly instead of making raw REST calls. Both transports serve the same tools against the same running instance's SQLite data:
+
+- **Streamable HTTP**, mounted at `/mcp` on the running instance alongside `/api/v1` — Bearer-gated the same way (`Authorization: Bearer <token>`) when `GITRAKZ_AUTH_TOKEN` is set.
+- **stdio**, via the binary's `gitrakz mcp` subcommand — opens the same SQLite database directly (no running HTTP server needed) and speaks MCP over stdin/stdout. Run it through Docker for a containerized install: `docker run --rm -i -e GH_TOKEN -v gitrakz-data:/data psyb0t/gitrakz:vX.Y.Z mcp`.
+
+```
+gitrakz_list_owners      # every owner with ingested activity
+gitrakz_list_repos       # repos under owner=
+gitrakz_list_templates   # every saved template (built-in + custom)
+gitrakz_get_template     # one template by id=
+gitrakz_run_template     # run templateId= over an optional filter -> block document
+gitrakz_trigger_sync     # trigger one incremental gh sync
+gitrakz_get_sync_status  # current sync status
+gitrakz_list_sessions    # derived work sessions over an optional filter
+gitrakz_query_timeline   # one page of the filtered, newest-first timeline
+```
+
+Every tool wraps the same service layer the REST handlers use — same request/response shapes, same sync/LLM cost caveats. See [.agents/skills/gitrakz/SKILL.md](.agents/skills/gitrakz/SKILL.md) for the full MCP client config examples (both transports).
+
 ## Agent integrations
 
 This repo ships a documentation skill for agents that drive a gitrakz instance:
-setup (installer or Docker), the `/api/v1` REST surface, and the `GH_TOKEN` auth
-model. It does **not** pretend gitrakz is an MCP server — gitrakz exposes a REST
-API, not an MCP endpoint.
+setup (installer or Docker), the `/api/v1` REST surface and the `/mcp` MCP
+surface, and the `GH_TOKEN` auth model.
 
 ### Claude Code
 

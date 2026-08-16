@@ -44,8 +44,6 @@ type primitive struct {
 // New builds an "aggregate" primitive from its JSON params. It returns
 // ErrInvalidParams (wrapped) when field is empty or op is not one of
 // OpSum, OpAvg, OpMin, OpMax.
-//
-
 func New(params []byte) (transform.Primitive, error) {
 	var p paramsInput
 	if err := json.Unmarshal(params, &p); err != nil {

@@ -29,8 +29,6 @@ type primitive struct{}
 
 // New builds the split-by-active-days primitive. It has no configuration, so
 // params is accepted and ignored.
-//
-
 func New(_ []byte) (transform.Primitive, error) {
 	return &primitive{}, nil
 }

@@ -106,8 +106,7 @@ func (m *mockGH) Diff(
 const commitEventOwner = "acme"
 
 // errMockFailure is a shared sentinel the mock CacheStore/LLMClient/
-// GHDiffer return to verify Apply wraps and propagates their errors
-// instead of swallowing them.
+// GHDiffer return to verify Apply wraps and propagates their errors.
 var errMockFailure = errors.New("mock failure")
 
 // commitEvent builds a minimal commit-type Event for tests.

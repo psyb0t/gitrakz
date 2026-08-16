@@ -43,8 +43,6 @@ type primitive struct {
 // to hoursField="hours", dollarsField="dollars", formKey="rate", and
 // rate=0 — the fallback hourly rate used when State.Form[formKey] is
 // absent or not numeric.
-//
-
 func New(params []byte) (transform.Primitive, error) {
 	sp := stepParams{
 		HoursField:   defaultHoursField,

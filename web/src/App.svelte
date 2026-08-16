@@ -4,10 +4,11 @@
   import ToastContainer from "$lib/components/common/ToastContainer.svelte";
   import RunnerView from "$lib/components/runner/RunnerView.svelte";
   import SessionsView from "$lib/components/sessions/SessionsView.svelte";
+  import SettingsView from "$lib/components/settings/SettingsView.svelte";
   import TemplatesManager from "$lib/components/templates/TemplatesManager.svelte";
   import Timeline from "$lib/components/timeline/Timeline.svelte";
 
-  type ViewID = "timeline" | "sessions" | "runner" | "templates";
+  type ViewID = "timeline" | "sessions" | "runner" | "templates" | "settings";
 
   interface ViewDef {
     id: ViewID;
@@ -19,6 +20,7 @@
     { id: "sessions", label: "Sessions" },
     { id: "runner", label: "Run a template" },
     { id: "templates", label: "Templates" },
+    { id: "settings", label: "Settings" },
   ];
 
   // A /?tpl=<id> deep-link opens straight on the runner so RunnerView mounts
@@ -52,7 +54,7 @@
   </nav>
 
   <div class="app-body">
-    {#if view !== "templates"}
+    {#if view !== "templates" && view !== "settings"}
       <FilterSidebar />
     {/if}
     <main class="app-main">
@@ -64,6 +66,8 @@
         <RunnerView />
       {:else if view === "templates"}
         <TemplatesManager />
+      {:else if view === "settings"}
+        <SettingsView />
       {/if}
     </main>
   </div>

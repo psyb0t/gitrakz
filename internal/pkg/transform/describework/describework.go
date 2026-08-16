@@ -1,18 +1,13 @@
-// Package describework implements the "describe-work" 🤖 transform
+// Package describework implements the "describe-work" transform
 // primitive: it turns a group of raw commit titles into a one-line,
-// natural-language description of the work — because commit subjects
-// like "fix", "wip", or "asdf" don't belong in a timesheet or client
-// report. A thin or junk title triggers a diff fetch so the
-// description reflects what actually changed, not a meaningless
-// subject line.
+// natural-language description of the work. A thin or junk title
+// triggers a diff fetch so the description reflects what actually
+// changed, not the subject line alone.
 //
-// The primitive depends on nothing concrete: CacheStore, LLMClient,
-// and GHDiffer (interfaces.go) are small in-package interfaces the
-// engine wires to real implementations (the db-backed llm_cache
-// table, elelem, commander's gh shell-out). That dependency inversion
-// keeps this package unit-testable with mocks — see
-// /home/bw/work/psyb0t/.git-trakz.md's "LLM steps are versioned +
-// cached" section for the cache contract this implements.
+// CacheStore, LLMClient, and GHDiffer (interfaces.go) are small
+// in-package interfaces the engine wires to real implementations (the
+// db-backed llm_cache table, elelem, commander's gh shell-out), which
+// keeps the package unit-testable with mocks.
 //
 // Every group is cached by (step, processingVersion, inputHash):
 // processingVersion hashes the whole LLM config (prompt version +
@@ -113,8 +108,6 @@ type primitive struct {
 // "v1", and thinMessageMaxLen to 12 when omitted. Returns
 // ErrMissingDependency when any of cache, llm, gh is nil, or a
 // wrapped ErrUnknownBy when by names anything else.
-//
-
 func New(
 	cache CacheStore,
 	llm LLMClient,

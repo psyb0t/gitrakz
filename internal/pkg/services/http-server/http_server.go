@@ -9,10 +9,12 @@ package httpserver
 import (
 	"context"
 	"errors"
+	"net/http"
 	"runtime/debug"
 	"sync"
 	"time"
 
+	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/psyb0t/aichteeteapee"
 	"github.com/psyb0t/aichteeteapee/serbewr"
 	"github.com/psyb0t/commander"
@@ -26,7 +28,9 @@ import (
 	"github.com/psyb0t/gitrakz/internal/pkg/ghsync"
 	"github.com/psyb0t/gitrakz/internal/pkg/http/api"
 	httpapi "github.com/psyb0t/gitrakz/internal/pkg/http/server"
+	mcpserver "github.com/psyb0t/gitrakz/internal/pkg/mcp"
 	"github.com/psyb0t/gitrakz/internal/pkg/transform/describework"
+	"github.com/psyb0t/gitrakz/internal/pkg/transform/llmstep"
 	"github.com/psyb0t/gitrakz/internal/pkg/transform/registry"
 )
 
@@ -34,9 +38,9 @@ import (
 // convention (http-server -> package httpserver) per wiring-servicepack.md.
 const ServiceName = "http-server"
 
-// httpListenAddr is the fixed in-container bind address. gitrakz ships as a
-// Docker image, so the address that matters is the host port you publish with
-// `-p`; the container always listens on :8080 rather than exposing a knob.
+// httpListenAddr is the fixed in-container bind address, not configurable.
+// gitrakz ships as a Docker image, so the address that matters is the host
+// port published with `-p`.
 const httpListenAddr = ":8080"
 
 // Service implements servicemanager.Service. New wires every dependency
@@ -45,7 +49,7 @@ const httpListenAddr = ":8080"
 type Service struct {
 	cfg     config.Config
 	store   *db.Store
-	syncCtl *syncController
+	syncCtl httpapi.SyncController
 	srv     *serbewr.Server
 	router  *serbewr.Router
 }
@@ -67,7 +71,7 @@ func New() (*Service, error) {
 		return nil, ctxerrors.Wrap(err, "open db")
 	}
 
-	if err := seedBuiltinTemplates(ctx, store); err != nil {
+	if err := SeedBuiltinTemplates(ctx, store); err != nil {
 		if closeErr := store.Close(); closeErr != nil {
 			ctxscope.GetLogger(ctx).Error(
 				"close db store after seed failure",
@@ -95,13 +99,14 @@ func New() (*Service, error) {
 	return svc, nil
 }
 
-// seedBuiltinTemplates upserts every templates.Builtins() entry into store.
+// SeedBuiltinTemplates upserts every templates.Builtins() entry into store.
 // SaveTemplate is an idempotent upsert (clause.OnConflict on id,
 // UpdateAll), so calling this on every boot is safe and keeps a running
 // service's built-ins in sync with whatever version of the templates
-// package it ships. Mirrors New's fail-fast contract: a seed failure
-// aborts boot rather than starting with an incomplete template library.
-func seedBuiltinTemplates(ctx context.Context, store *db.Store) error {
+// package it ships. A seed failure aborts boot, per New's fail-fast
+// contract. Exported so the `gitrakz mcp` stdio command (see cmd/) seeds
+// the same built-ins the HTTP service would.
+func SeedBuiltinTemplates(ctx context.Context, store *db.Store) error {
 	logger := ctxscope.GetLogger(ctx)
 	builtins := templates.Builtins()
 
@@ -126,52 +131,72 @@ func seedBuiltinTemplates(ctx context.Context, store *db.Store) error {
 	return nil
 }
 
-// wire builds every dependency downstream of store: the gh sync engine,
-// the transform registry (the 7 deterministic primitives plus the
-// LLM-backed describe-work), the template engine, the LLM adapters, the
-// generated API's Server, and the serbewr router mounting it alongside the
-// embedded SPA.
-func wire(cfg config.Config, store *db.Store) (*Service, error) {
+// BuildDeps wires every dependency downstream of store: the gh sync
+// engine, the transform registry (the 7 deterministic primitives plus the
+// LLM-backed describe-work and llm-step primitives), the template engine,
+// and the LLM adapters — returning the shared httpapi.Deps both the
+// generated HTTP API (wire, below) and the MCP server (wire, below, and the
+// `gitrakz mcp` stdio command in cmd/) are built from. Exported so cmd/ can
+// wire the exact same production stack without duplicating this logic.
+func BuildDeps(cfg config.Config, store *db.Store) (httpapi.Deps, error) {
 	cmd := commander.New()
 	ghClient := ghsync.NewCommanderGHClient(cmd)
 	syncer := ghsync.NewSyncer(ghClient, store, cfg.GHUser)
 	syncCtl := newSyncController(syncer)
 
-	llmClient, model := newLLMClient(cfg)
+	llmRT := newLLMRuntime(newLLMClient(cfg), cfg.ElelemType, store)
 
 	cache := newDescribeWorkCacheStore(store)
-	describer := newLLMDescriber(llmClient, model)
+	describer := newLLMDescriber(llmRT)
 	differ := newCommanderGHDiffer(cmd)
 
-	// registry.Default() already registers the 7 deterministic
-	// primitives (sessionize, exclude-off-time, split-by-active-days,
-	// group-by, aggregate, rate, passthrough) under their Name consts —
-	// reused here rather than re-registered by hand. describe-work is
-	// the one primitive with real dependencies (cache/LLM/gh), so it's
-	// added on top via a closure over this service's wired adapters.
-	reg := registry.Default()
-	reg.Register(describework.Name, func(
-		params []byte,
-	) (ctransform.Primitive, error) {
-		return describework.New(cache, describer, differ, params)
-	})
-
+	reg := buildTransformRegistry(llmRT, cache, describer, differ)
 	eng := engine.NewEngine(reg)
 
 	sess, err := newSessionizer(cfg.SessionGap, cfg.SessionLeadIn)
 	if err != nil {
-		return nil, ctxerrors.Wrap(err, "build sessionizer")
+		return httpapi.Deps{}, ctxerrors.Wrap(err, "build sessionizer")
 	}
 
-	composer := newLLMComposer(llmClient, model)
+	composer := newLLMComposer(llmRT)
 
-	apiServer := httpapi.New(httpapi.Deps{
+	return httpapi.Deps{
 		Store:          store,
 		Engine:         eng,
 		Sessionizer:    sess,
 		SyncController: syncCtl,
 		LLMComposer:    composer,
+		LLMModelLister: llmRT,
+	}, nil
+}
+
+// newMCPHandler builds gitrakz's MCP server over deps and wraps it as a
+// streamable-HTTP http.Handler. The same *mcpsdk.Server instance is reused
+// across every request/session — it has no per-request state of its own,
+// only the shared Deps.
+func newMCPHandler(deps httpapi.Deps) http.Handler {
+	mcpSrv := mcpserver.NewServer(mcpserver.Deps{
+		Store:          deps.Store,
+		Engine:         deps.Engine,
+		Sessionizer:    deps.Sessionizer,
+		SyncController: deps.SyncController,
 	})
+
+	return mcpsdk.NewStreamableHTTPHandler(
+		func(*http.Request) *mcpsdk.Server { return mcpSrv }, nil,
+	)
+}
+
+// wire builds the generated API's Server and gitrakz's MCP server from a
+// shared BuildDeps call, and the serbewr router mounting both alongside the
+// embedded SPA.
+func wire(cfg config.Config, store *db.Store) (*Service, error) {
+	deps, err := BuildDeps(cfg, store)
+	if err != nil {
+		return nil, err
+	}
+
+	apiServer := httpapi.New(deps)
 
 	strictHandler := api.NewStrictHandler(apiServer, nil)
 	// The OpenAPI paths are version-less; BaseURL applies the /api/v1 prefix
@@ -180,12 +205,14 @@ func wire(cfg config.Config, store *db.Store) (*Service, error) {
 		strictHandler, api.StdHTTPServerOptions{BaseURL: apiBaseURL},
 	)
 
+	mcpHandler := newMCPHandler(deps)
+
 	spaHandler, err := newSPAHandler()
 	if err != nil {
 		return nil, ctxerrors.Wrap(err, "build spa handler")
 	}
 
-	router := newRouter(cfg.AuthToken, apiHandler, spaHandler)
+	router := newRouter(cfg.AuthToken, apiHandler, mcpHandler, spaHandler)
 
 	srv, err := serbewr.NewWithConfig(serverConfig())
 	if err != nil {
@@ -195,16 +222,45 @@ func wire(cfg config.Config, store *db.Store) (*Service, error) {
 	return &Service{
 		cfg:     cfg,
 		store:   store,
-		syncCtl: syncCtl,
+		syncCtl: deps.SyncController,
 		srv:     srv,
 		router:  router,
 	}, nil
 }
 
+// buildTransformRegistry returns registry.Default() (the 7 deterministic
+// primitives — sessionize, exclude-off-time, split-by-active-days,
+// group-by, aggregate, rate, passthrough — under their Name consts) plus
+// the two primitives with real dependencies (cache/LLM/gh), describe-work
+// and llm, added on top via closures over this service's wired adapters.
+func buildTransformRegistry(
+	llmRT *llmRuntime,
+	cache describework.CacheStore,
+	describer describework.LLMClient,
+	differ describework.GHDiffer,
+) *ctransform.Registry {
+	reg := registry.Default()
+	reg.Register(describework.Name, func(
+		params []byte,
+	) (ctransform.Primitive, error) {
+		return describework.New(cache, describer, differ, params)
+	})
+
+	stepClient := newLLMStepClient(llmRT)
+
+	reg.Register(llmstep.Name, func(
+		params []byte,
+	) (ctransform.Primitive, error) {
+		return llmstep.New(stepClient, params)
+	})
+
+	return reg
+}
+
 // serverConfig builds serbewr's Config from the fixed httpListenAddr plus
-// aichteeteapee's own package defaults for everything else — it's built
-// directly rather than via serbewr.New() so gitrakz's bind address isn't driven
-// by serbewr's HTTP_SERVER_* env vars.
+// aichteeteapee's own package defaults for everything else. Built directly,
+// bypassing serbewr's HTTP_SERVER_* env vars, so they can't override
+// gitrakz's fixed bind address.
 func serverConfig() serbewr.Config {
 	return serbewr.Config{
 		ListenAddress:       httpListenAddr,
@@ -278,8 +334,8 @@ func (s *Service) Stop(ctx context.Context) error {
 
 // runSyncTicker calls syncCtl.Trigger every cfg.SyncInterval until ctx is
 // done. cfg.SyncInterval <= 0 disables the ticker — manual /api/v1/sync
-// triggers still work. A recovered panic is logged rather than crashing
-// the whole service, per the goroutine panic-recovery rule.
+// triggers still work. A panic here is recovered and logged, per the
+// goroutine panic-recovery rule.
 func (s *Service) runSyncTicker(ctx context.Context) {
 	logger := ctxscope.GetLogger(ctx)
 

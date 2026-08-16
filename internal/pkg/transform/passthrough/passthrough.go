@@ -21,8 +21,6 @@ type primitive struct{}
 
 // New builds a passthrough primitive. The params argument is accepted per
 // the transform.Factory signature but ignored — passthrough takes no config.
-//
-
 func New(_ []byte) (transform.Primitive, error) {
 	return primitive{}, nil
 }

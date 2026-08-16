@@ -160,6 +160,33 @@ type GenerateTemplateRequest struct {
 	Prompt string `json:"prompt"`
 }
 
+// LLMModel defines model for LLMModel.
+type LLMModel struct {
+	ContextSize int    `json:"contextSize"`
+	Id          string `json:"id"`
+
+	// MaxReasoningEffort Highest supported reasoning effort, or "" when none.
+	MaxReasoningEffort      string `json:"maxReasoningEffort"`
+	SupportsReasoningEffort bool   `json:"supportsReasoningEffort"`
+
+	// SupportsSamplingParams Whether the model accepts temperature and top-p.
+	SupportsSamplingParams bool `json:"supportsSamplingParams"`
+}
+
+// LLMSettings defines model for LLMSettings.
+type LLMSettings struct {
+	Model           string   `json:"model"`
+	ReasoningEffort *string  `json:"reasoningEffort,omitempty"`
+	Temperature     *float32 `json:"temperature,omitempty"`
+}
+
+// LLMSettingsInput defines model for LLMSettingsInput.
+type LLMSettingsInput struct {
+	Model           string   `json:"model"`
+	ReasoningEffort *string  `json:"reasoningEffort,omitempty"`
+	Temperature     *float32 `json:"temperature,omitempty"`
+}
+
 // RunRequest defines model for RunRequest.
 type RunRequest struct {
 	// Filter Timeline filter selecting the range/scope to operate on.
@@ -327,6 +354,9 @@ type ListTimelineParams struct {
 // ExportDocumentJSONRequestBody defines body for ExportDocument for application/json ContentType.
 type ExportDocumentJSONRequestBody = ExportRequest
 
+// UpdateLLMSettingsJSONRequestBody defines body for UpdateLLMSettings for application/json ContentType.
+type UpdateLLMSettingsJSONRequestBody = LLMSettingsInput
+
 // RunTemplateJSONRequestBody defines body for RunTemplate for application/json ContentType.
 type RunTemplateJSONRequestBody = RunRequest
 
@@ -344,6 +374,15 @@ type ServerInterface interface {
 	// ExportDocument Export a document (or a template run) to a file
 	// (POST /export)
 	ExportDocument(w http.ResponseWriter, r *http.Request)
+	// ListLLMModels List available LLM models with capabilities
+	// (GET /llm/models)
+	ListLLMModels(w http.ResponseWriter, r *http.Request)
+	// GetLLMSettings Get the current LLM settings
+	// (GET /llm/settings)
+	GetLLMSettings(w http.ResponseWriter, r *http.Request)
+	// UpdateLLMSettings Update the LLM settings
+	// (PUT /llm/settings)
+	UpdateLLMSettings(w http.ResponseWriter, r *http.Request)
 	// ListOwners List distinct owners/orgs
 	// (GET /owners)
 	ListOwners(w http.ResponseWriter, r *http.Request)
@@ -396,6 +435,48 @@ func (siw *ServerInterfaceWrapper) ExportDocument(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ExportDocument(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListLLMModels operation middleware
+func (siw *ServerInterfaceWrapper) ListLLMModels(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListLLMModels(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLLMSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetLLMSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLLMSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateLLMSettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateLLMSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateLLMSettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -904,6 +985,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/templates/generate", wrapper.GenerateTemplate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/run", wrapper.RunTemplate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/export", wrapper.ExportDocument)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/llm/models", wrapper.ListLLMModels)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/llm/settings", wrapper.GetLLMSettings)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/llm/settings", wrapper.UpdateLLMSettings)
 
 	return m
 }
@@ -944,6 +1028,121 @@ type ExportDocumentdefaultJSONResponse struct {
 }
 
 func (response ExportDocumentdefaultJSONResponse) VisitExportDocumentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLLMModelsRequestObject struct {
+}
+
+type ListLLMModelsResponseObject interface {
+	VisitListLLMModelsResponse(w http.ResponseWriter) error
+}
+
+type ListLLMModels200JSONResponse []LLMModel
+
+func (response ListLLMModels200JSONResponse) VisitListLLMModelsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLLMModelsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	StatusCode int
+}
+
+func (response ListLLMModelsdefaultJSONResponse) VisitListLLMModelsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLLMSettingsRequestObject struct {
+}
+
+type GetLLMSettingsResponseObject interface {
+	VisitGetLLMSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetLLMSettings200JSONResponse LLMSettings
+
+func (response GetLLMSettings200JSONResponse) VisitGetLLMSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLLMSettingsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	StatusCode int
+}
+
+func (response GetLLMSettingsdefaultJSONResponse) VisitGetLLMSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLLMSettingsRequestObject struct {
+	Body *UpdateLLMSettingsJSONRequestBody
+}
+
+type UpdateLLMSettingsResponseObject interface {
+	VisitUpdateLLMSettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateLLMSettings200JSONResponse LLMSettings
+
+func (response UpdateLLMSettings200JSONResponse) VisitUpdateLLMSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLLMSettingsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	StatusCode int
+}
+
+func (response UpdateLLMSettingsdefaultJSONResponse) VisitUpdateLLMSettingsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -1419,6 +1618,15 @@ type StrictServerInterface interface {
 	// ExportDocument Export a document (or a template run) to a file
 	// (POST /export)
 	ExportDocument(ctx context.Context, request ExportDocumentRequestObject) (ExportDocumentResponseObject, error)
+	// ListLLMModels List available LLM models with capabilities
+	// (GET /llm/models)
+	ListLLMModels(ctx context.Context, request ListLLMModelsRequestObject) (ListLLMModelsResponseObject, error)
+	// GetLLMSettings Get the current LLM settings
+	// (GET /llm/settings)
+	GetLLMSettings(ctx context.Context, request GetLLMSettingsRequestObject) (GetLLMSettingsResponseObject, error)
+	// UpdateLLMSettings Update the LLM settings
+	// (PUT /llm/settings)
+	UpdateLLMSettings(ctx context.Context, request UpdateLLMSettingsRequestObject) (UpdateLLMSettingsResponseObject, error)
 	// ListOwners List distinct owners/orgs
 	// (GET /owners)
 	ListOwners(ctx context.Context, request ListOwnersRequestObject) (ListOwnersResponseObject, error)
@@ -1520,6 +1728,85 @@ func (sh *strictHandler) ExportDocument(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ExportDocumentResponseObject); ok {
 		if err := validResponse.VisitExportDocumentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListLLMModels operation middleware
+func (sh *strictHandler) ListLLMModels(w http.ResponseWriter, r *http.Request) {
+	var request ListLLMModelsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListLLMModels(ctx, request.(ListLLMModelsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListLLMModels")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListLLMModelsResponseObject); ok {
+		if err := validResponse.VisitListLLMModelsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetLLMSettings operation middleware
+func (sh *strictHandler) GetLLMSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetLLMSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLLMSettings(ctx, request.(GetLLMSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLLMSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLLMSettingsResponseObject); ok {
+		if err := validResponse.VisitGetLLMSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateLLMSettings operation middleware
+func (sh *strictHandler) UpdateLLMSettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateLLMSettingsRequestObject
+
+	var body UpdateLLMSettingsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateLLMSettings(ctx, request.(UpdateLLMSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateLLMSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateLLMSettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateLLMSettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -1858,65 +2145,71 @@ func (sh *strictHandler) ListTimeline(w http.ResponseWriter, r *http.Request, pa
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"AAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

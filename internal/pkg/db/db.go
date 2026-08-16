@@ -14,20 +14,17 @@ import (
 	"gorm.io/gorm"
 )
 
-// migrationsRoot is "." rather than "" — the embedded migrations.FS has no
-// subdirectory (the //go:embed directive embeds *.sql at its own root), and
-// io/fs treats "" as an invalid path while "." means "this filesystem's
-// root".
+// migrationsRoot is "." — the embedded FS has no subdirectory, and io/fs
+// treats "" as invalid while "." means "this filesystem's root".
 const migrationsRoot = "."
 
 // Open opens (creating it if necessary) the SQLite database at dbPath, runs
 // every pending migration, and returns a Store wired to its own generated
-// query API instance (repositories.Use, not repositories.SetDefault — the
-// latter mutates process-wide globals and races when more than one Store is
-// opened concurrently, which every parallel test in this package does).
-// ctx is accepted for API consistency with the rest of the codebase; the
-// underlying driver and migration runner are synchronous and do not
-// currently accept a context.
+// query API instance (repositories.Use — not SetDefault, which mutates
+// process-wide globals and races when multiple Stores open concurrently,
+// as every parallel test in this package does).
+// ctx is accepted for API consistency; the driver and migration runner are
+// synchronous and do not currently take a context.
 func Open(_ context.Context, dbPath string) (*Store, error) {
 	gormDB, err := gorm.Open(gormsqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {

@@ -143,8 +143,6 @@ func (s *ServiceManager) RegisteredNames() []string {
 
 // Instantiate creates a single service by calling its factory.
 // Used for Commander commands that need only one service.
-//
-
 func (s *ServiceManager) Instantiate(
 	name string,
 ) (Service, error) {
@@ -523,16 +521,14 @@ func (s *ServiceManager) handleServiceError(
 		return
 	}
 
-	// Non-blocking on purpose. errCh has capacity 1 and Run receives from it at
-	// most once, so a plain send parks every concurrent failure after the first
-	// forever — and Run's `defer s.wg.Wait()` then never returns, turning a
-	// reported error into a hung process. A bare send is not selectable, so
-	// context cancellation cannot rescue it either.
+	// Non-blocking on purpose. errCh has capacity 1 and Run receives from it
+	// at most once, so a plain send would park every concurrent failure after
+	// the first forever, hanging Run's `defer s.wg.Wait()`. A bare send is
+	// also not selectable, so context cancellation could not rescue it.
 	//
-	// Dropping the later errors is the correct semantic rather than a
-	// compromise: the documented contract is that the FIRST non-allowed
-	// failure stops everything, and what follows is a consequence of that
-	// same shutdown. They are logged here so nothing vanishes silently.
+	// The contract is that the FIRST non-allowed failure stops everything;
+	// later failures are a consequence of that shutdown and are logged here,
+	// not dropped silently.
 	select {
 	case errCh <- err:
 	default:

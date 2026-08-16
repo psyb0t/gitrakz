@@ -170,3 +170,19 @@ export interface ChartData {
   labels: string[];
   values: number[];
 }
+
+export interface LLMModel {
+  id: string;
+  supportsReasoningEffort: boolean;
+  maxReasoningEffort: string;
+  supportsSamplingParams: boolean;
+  contextSize: number;
+}
+
+export interface LLMSettingsInput {
+  model: string;
+  reasoningEffort: string;
+  temperature: number;
+}
+
+export type LLMSettings = LLMSettingsInput;

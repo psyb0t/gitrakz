@@ -10,9 +10,8 @@ import (
 
 const (
 	// ghBinaryName is the gh CLI executable shelled out to — matches
-	// ghsync's own commander_client.go, duplicated here because that
-	// const is unexported and describework's GHDiffer is a distinct
-	// dependency this service wires independently.
+	// ghsync's own commander_client.go, duplicated here since that
+	// const is unexported.
 	ghBinaryName = "gh"
 
 	// ghDiffAcceptHeader asks the GitHub REST API for the commit's

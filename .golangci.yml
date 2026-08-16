@@ -131,6 +131,7 @@ linters:
             - github.com/johnfercher/maroto
             - gorm.io
             - github.com/ncruces/go-sqlite3
+            - github.com/modelcontextprotocol/go-sdk
 
   exclusions:
     generated: lax

@@ -1,6 +1,6 @@
 ---
 name: gitrakz
-description: Drive a self-hosted gitrakz instance — the tool that syncs a GitHub user's activity into local SQLite, renders a filterable timeline and derived work sessions, and runs deterministic programmatic templates that export to CSV/PDF/JSON. Install or run it with Docker, then query its bearer-protected REST API under /api/v1 (owners, repos, timeline, sessions, sync + sync status, templates CRUD, LLM template generation, run, export). Use when the user wants to set up gitrakz, trigger or check a GitHub activity sync, pull a timeline or work-sessions timesheet, or run and export a template.
+description: Drive a self-hosted gitrakz instance — the tool that syncs a GitHub user's activity into local SQLite, renders a filterable timeline and derived work sessions, and runs deterministic programmatic templates that export to CSV/PDF/JSON. Install or run it with Docker, then query its bearer-protected REST API under /api/v1 (owners, repos, timeline, sessions, sync + sync status, templates CRUD, LLM template generation, run, export) — or drive the same capabilities as MCP tools over streamable HTTP (/mcp) or stdio (`gitrakz mcp`). Use when the user wants to set up gitrakz, trigger or check a GitHub activity sync, pull a timeline or work-sessions timesheet, or run and export a template.
 homepage: https://github.com/psyb0t/gitrakz
 user-invocable: true
 metadata:
@@ -40,8 +40,12 @@ For setup — the installer, the direct-Docker path, config, and auth — read
 - `GITRAKZ_ELELEM_BASE_URL` receives commit titles / diffs when LLM steps run.
   Point it only at endpoints the user trusts. Template output is typed display
   blocks, never author-supplied HTML.
-- gitrakz has no MCP endpoint. This is a documentation skill for a REST API, not
-  a bridge plugin with invented tools.
+- gitrakz also exposes its capabilities as MCP tools (see "MCP" below), over the
+  same two surfaces: streamable HTTP at `/mcp` (Bearer-gated exactly like
+  `/api/v1` when `GITRAKZ_AUTH_TOKEN` is set) and stdio via the binary's `mcp`
+  subcommand. Every MCP tool wraps the same read-mostly service layer as the
+  REST API above — same sync/LLM cost caveats apply to `gitrakz_trigger_sync`
+  and `gitrakz_run_template`.
 
 ## Use it for
 
@@ -51,6 +55,8 @@ For setup — the installer, the direct-Docker path, config, and auth — read
 - Pulling a filtered timeline or a derived work-sessions timesheet.
 - Listing, creating, editing, and running templates, and exporting a run to
   CSV / PDF / JSON.
+- Any of the above through MCP tools instead of raw REST calls, when the
+  driving client speaks MCP (see "MCP" below).
 
 ## Do not use it for
 
@@ -105,6 +111,77 @@ Everything the SPA does is one of these calls:
 
 The OpenAPI spec at `api/api.yml` in the repo is the source of truth for request
 and response shapes.
+
+## MCP
+
+gitrakz exposes the same capabilities above as MCP (Model Context Protocol)
+tools — no REST calls needed if the client speaks MCP. Both transports serve
+identical tools against the same running instance's SQLite data.
+
+### Tools
+
+- `gitrakz_list_owners` — every owner with ingested activity. No input.
+- `gitrakz_list_repos` — repos under `owner` (required).
+- `gitrakz_list_templates` — every saved template (built-in + custom). No input.
+- `gitrakz_get_template` — one template by `id` (required).
+- `gitrakz_run_template` — run `templateId` (required) over an optional
+  `filter` (`owner`/`repo`/`type`/`from`/`to`) and `formValues`; returns the
+  rendered document as typed display blocks (never HTML).
+- `gitrakz_trigger_sync` — trigger one incremental `gh` sync. No input. Same
+  network + rate-limit cost as `POST /api/v1/sync`.
+- `gitrakz_get_sync_status` — current sync status. No input.
+- `gitrakz_list_sessions` — derived work sessions over an optional
+  `owner`/`from`/`to` filter.
+- `gitrakz_query_timeline` — one page of the filtered, newest-first event
+  timeline (`owner`/`repo`/`type`/`from`/`to`/`page`/`perPage`).
+
+### Streamable HTTP — same host as the REST API
+
+Mounted at `/mcp` on the running instance, alongside `/api/v1`. Bearer-gated
+the same way: send `Authorization: Bearer <token>` when `GITRAKZ_AUTH_TOKEN`
+is set on the server.
+
+```json
+{
+  "mcpServers": {
+    "gitrakz": {
+      "type": "http",
+      "url": "http://127.0.0.1:8080/mcp",
+      "headers": { "Authorization": "Bearer <GITRAKZ_AUTH_TOKEN>" }
+    }
+  }
+}
+```
+
+Omit `headers` when the server has no `GITRAKZ_AUTH_TOKEN` set.
+
+### stdio — local Claude Code use
+
+The Go binary's `mcp` subcommand (not the shell wrapper's `gitrakz start` /
+`stop` / etc. commands) opens the exact same SQLite database and runs the MCP
+server over stdio. Since gitrakz ships as a container, run it through Docker
+with `-i` for a live stdin/stdout pipe, against the same named data volume the
+stack already uses:
+
+```json
+{
+  "mcpServers": {
+    "gitrakz": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-e", "GH_TOKEN",
+        "-v", "gitrakz-data:/data",
+        "psyb0t/gitrakz:vX.Y.Z", "mcp"
+      ],
+      "env": { "GH_TOKEN": "<gh auth token>" }
+    }
+  }
+}
+```
+
+Pin the same released tag the running stack uses. `GH_TOKEN` is only needed
+for `gitrakz_trigger_sync`; every read-only tool works without it.
 
 ## Setup
 

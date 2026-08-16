@@ -50,8 +50,6 @@ type primitive struct {
 // New builds an exclude-off-time primitive from its JSON params. params
 // may be empty when the run's Form is expected to supply "offHours"
 // instead.
-//
-
 func New(params []byte) (transform.Primitive, error) {
 	var sp stepParams
 

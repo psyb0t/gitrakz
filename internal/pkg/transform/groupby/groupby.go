@@ -48,8 +48,6 @@ type primitive struct {
 // {"by": "owner"|"repo"|"type"|"branch"|"day"}. by defaults to ByOwner
 // when params is empty or "by" is omitted. Returns a wrapped ErrUnknownBy
 // when by names anything else.
-//
-
 func New(rawParams []byte) (transform.Primitive, error) {
 	cfg := struct {
 		By By `json:"by"`

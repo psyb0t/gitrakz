@@ -319,6 +319,40 @@ func TestStore_LLMCache(t *testing.T) {
 	assert.Equal(t, "updated output", output)
 }
 
+func TestStore_LLMSettings(t *testing.T) {
+	t.Parallel()
+
+	store := openTestStore(t)
+	ctx := context.Background()
+
+	got, err := store.GetLLMSettings(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, LLMSettings{}, got)
+
+	require.NoError(t, store.SaveLLMSettings(ctx, LLMSettings{
+		Model:           "gpt-5",
+		ReasoningEffort: "high",
+		Temperature:     0.4,
+	}))
+
+	got, err = store.GetLLMSettings(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "gpt-5", got.Model)
+	assert.Equal(t, "high", got.ReasoningEffort)
+	assert.InDelta(t, 0.4, got.Temperature, 0.001)
+
+	require.NoError(t, store.SaveLLMSettings(ctx, LLMSettings{
+		Model:       "claude-x",
+		Temperature: 0.9,
+	}))
+
+	got, err = store.GetLLMSettings(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "claude-x", got.Model)
+	assert.Empty(t, got.ReasoningEffort)
+	assert.InDelta(t, 0.9, got.Temperature, 0.001)
+}
+
 func TestOpen_DirectoryAsPathErrors(t *testing.T) {
 	t.Parallel()
 

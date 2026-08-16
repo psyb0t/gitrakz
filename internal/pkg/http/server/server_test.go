@@ -16,6 +16,8 @@ import (
 
 // fakeStore is a hand-rolled Store test double — each test wires only
 // the func fields the scenario needs.
+//
+//nolint:dupl // intentionally mirrors the Store interface field-for-field
 type fakeStore struct {
 	listOwnersFn    func(ctx context.Context) ([]string, error)
 	listReposFn     func(ctx context.Context, owner string) ([]string, error)
@@ -30,8 +32,10 @@ type fakeStore struct {
 		ctx context.Context,
 		id string,
 	) (template.Template, error)
-	saveTemplateFn   func(ctx context.Context, tmpl template.Template) error
-	deleteTemplateFn func(ctx context.Context, id string) error
+	saveTemplateFn    func(ctx context.Context, tmpl template.Template) error
+	deleteTemplateFn  func(ctx context.Context, id string) error
+	getLLMSettingsFn  func(ctx context.Context) (db.LLMSettings, error)
+	saveLLMSettingsFn func(ctx context.Context, settings db.LLMSettings) error
 }
 
 func (f *fakeStore) ListOwners(ctx context.Context) ([]string, error) {
@@ -74,6 +78,30 @@ func (f *fakeStore) SaveTemplate(
 
 func (f *fakeStore) DeleteTemplate(ctx context.Context, id string) error {
 	return f.deleteTemplateFn(ctx, id)
+}
+
+func (f *fakeStore) GetLLMSettings(
+	ctx context.Context,
+) (db.LLMSettings, error) {
+	return f.getLLMSettingsFn(ctx)
+}
+
+func (f *fakeStore) SaveLLMSettings(
+	ctx context.Context,
+	settings db.LLMSettings,
+) error {
+	return f.saveLLMSettingsFn(ctx, settings)
+}
+
+// fakeLLMModelLister is a hand-rolled LLMModelLister test double.
+type fakeLLMModelLister struct {
+	listModelsFn func(ctx context.Context) ([]api.LLMModel, error)
+}
+
+func (f *fakeLLMModelLister) ListModels(
+	ctx context.Context,
+) ([]api.LLMModel, error) {
+	return f.listModelsFn(ctx)
 }
 
 // fakeEngine is a hand-rolled Engine test double.

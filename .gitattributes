@@ -1,0 +1,3 @@
+# Embedded SPA build output: minified bundles, treated as binary so git skips
+# whitespace checks and EOL normalization on them.
+internal/pkg/services/http-server/web/dist/assets/* binary

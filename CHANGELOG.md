@@ -4,6 +4,25 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.7.0 — 2026-08-16
+
+- **LLM model/reasoning/temperature moved to runtime settings.** These are no
+  longer environment variables. `GITRAKZ_ELELEM_MODEL` is removed; set the
+  model, reasoning effort, and temperature in the web UI's Settings page
+  instead, chosen from the provider's own model list and stored in the
+  database. Reasoning and temperature inputs are offered only for models whose
+  capabilities support them. `GITRAKZ_ELELEM_TYPE/BASE_URL/API_KEY` are
+  unchanged. **Migration:** drop `GITRAKZ_ELELEM_MODEL` from your `.env` and
+  pick the model in Settings after upgrading.
+- **New `llm` transform primitive.** A user-authored pipeline step that runs a
+  caller-supplied instruction over the pipeline's current data and writes the
+  model's response as a row, optionally constrained to a caller-supplied JSON
+  schema for structured output. Composable with the existing display blocks.
+- **MCP server.** Every capability the REST API exposes is also an MCP tool,
+  over Streamable HTTP at `/mcp` (Bearer-gated like `/api/v1`) and over stdio
+  via the new `gitrakz mcp` subcommand, so an MCP client such as Claude Code
+  can drive gitrakz directly.
+
 ## v0.6.3 — 2026-08-16
 
 - **Visible configuration reference.** The installer, upgrade path, and

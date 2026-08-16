@@ -7,9 +7,10 @@ import (
 	"github.com/psyb0t/gitrakz/internal/pkg/config"
 )
 
-const defaultLLMContextSize = 128_000
-
-func newLLMClient(cfg config.Config) (*elelem.Client, elelem.Model) {
+// newLLMClient builds the elelem client from the provider connection config
+// (type, base URL, API key). The model and per-request parameters come from
+// the stored LLM settings via llmRuntime.
+func newLLMClient(cfg config.Config) *elelem.Client {
 	var driver elelem.Driver
 
 	switch cfg.ElelemType {
@@ -25,12 +26,5 @@ func newLLMClient(cfg config.Config) (*elelem.Client, elelem.Model) {
 		)
 	}
 
-	model := elelem.Model{
-		ID:          cfg.ElelemModel,
-		ContextSize: defaultLLMContextSize,
-	}
-
-	client := elelem.New(driver, elelem.WithDefaultModel(model))
-
-	return client, model
+	return elelem.New(driver)
 }
