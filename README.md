@@ -128,7 +128,7 @@ the container with it):
 docker run --rm -p 8080:8080 \
   -e GH_TOKEN="$(gh auth token)" \
   -v gitrakz-data:/data \
-  psyb0t/gitrakz:v0.7.2 run          # pin a release tag, not :latest
+  psyb0t/gitrakz:latest run          # or pin a version from Releases for a reproducible deploy
 ```
 
 Add any `-e GITRAKZ_*` from the [Configuration](#configuration) table. Or run
@@ -227,7 +227,7 @@ The OpenAPI spec at `api/api.yml` is the source of truth; the server interface a
 Every capability above is also exposed as an MCP (Model Context Protocol) tool, so an MCP-speaking client (Claude Code, etc.) can drive gitrakz directly instead of making raw REST calls. Both transports serve the same tools against the same running instance's SQLite data:
 
 - **Streamable HTTP**, mounted at `/mcp` on the running instance alongside `/api/v1` — Bearer-gated the same way (`Authorization: Bearer <token>`) when `GITRAKZ_AUTH_TOKEN` is set.
-- **stdio**, via the binary's `gitrakz mcp` subcommand — opens the same SQLite database directly (no running HTTP server needed) and speaks MCP over stdin/stdout. Run it through Docker for a containerized install: `docker run --rm -i -e GH_TOKEN -v gitrakz-data:/data psyb0t/gitrakz:vX.Y.Z mcp`.
+- **stdio**, via the binary's `gitrakz mcp` subcommand — opens the same SQLite database directly (no running HTTP server needed) and speaks MCP over stdin/stdout. Run it through Docker for a containerized install: `docker run --rm -i -e GH_TOKEN -v gitrakz-data:/data psyb0t/gitrakz:latest mcp` (pin a version from Releases for a reproducible deploy).
 
 ```
 gitrakz_list_owners      # every owner with ingested activity
