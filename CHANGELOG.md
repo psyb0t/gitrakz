@@ -4,6 +4,14 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.6.3 — 2026-08-16
+
+- **Visible configuration reference.** The installer, upgrade path, and
+  `gitrakz setup` now refresh `<config>/.env.example` beside the operator's
+  `.env`. A missing `.env` is copied from that template; an existing `.env` is
+  never replaced, so user configuration remains intact while new settings stay
+  discoverable.
+
 ## v0.6.2 — 2026-08-16
 
 - **Reliable named-volume state.** Revert the v0.6.1 host bind mount: SQLite is

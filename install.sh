@@ -203,9 +203,10 @@ set_env_var() {
 	fi
 }
 
-# write_config drops the pinned compose file + a seeded .env into the config dir.
-# The dir already has mode-appropriate ownership from prepare_config_dir; files
-# are owned by the running identity (the user, or root for the system install).
+# write_config drops the pinned compose file and current .env.example into the
+# config dir. It seeds .env once without replacing operator configuration. The
+# dir already has mode-appropriate ownership from prepare_config_dir; files are
+# owned by the running identity (the user, or root for the system install).
 write_config() {
 	local tag="$1" image="$IMAGE_REPO:$1"
 
@@ -213,10 +214,16 @@ write_config() {
 	curl -fsSL "$RAW_BASE/$tag/docker-compose.yml" \
 		-o "$TARGET_CONFIG_DIR/docker-compose.yml"
 
-	# The .env is the user's — seed it once, then only update the image pin so a
-	# re-run (upgrade) never clobbers their AUTH_TOKEN / GH_USER / etc.
+	# Keep the tracked template visible beside the operator-owned .env. Refresh
+	# it on every install/upgrade so newly introduced variables are discoverable.
+	curl -fsSL "$RAW_BASE/$tag/.env.example" \
+		-o "$TARGET_CONFIG_DIR/.env.example"
+	chmod 0644 "$TARGET_CONFIG_DIR/.env.example"
+
+	# The .env is the user's — seed it only once, then update just the image pin
+	# so a re-run never clobbers their AUTH_TOKEN / GH_USER / other overrides.
 	if [[ ! -f "$TARGET_CONFIG_DIR/.env" ]]; then
-		curl -fsSL "$RAW_BASE/$tag/.env.example" -o "$TARGET_CONFIG_DIR/.env"
+		cp "$TARGET_CONFIG_DIR/.env.example" "$TARGET_CONFIG_DIR/.env"
 	fi
 	set_env_var "$TARGET_CONFIG_DIR/.env" GITRAKZ_IMAGE "$image"
 	chmod 0600 "$TARGET_CONFIG_DIR/.env"
@@ -263,7 +270,7 @@ usage() {
 Usage: gitrakz <command> [--rolling]
 
 Commands:
-  setup      Create the config (compose + .env) without replacing your config
+  setup      Refresh compose + .env.example; create .env only when missing
   start      Inject a GitHub token from `gh auth token`, pull, and start it
   stop       Stop the gitrakz stack
   status     Show the container state
@@ -475,8 +482,11 @@ setup() {
 
     $wrap curl -fsSL "$RAW_BASE/$tag/docker-compose.yml" \
         -o "$config_dir/docker-compose.yml"
+    $wrap curl -fsSL "$RAW_BASE/$tag/.env.example" \
+        -o "$config_dir/.env.example"
+    $wrap chmod 0644 "$config_dir/.env.example"
     if [[ ! -f "$config_dir/.env" ]]; then
-        $wrap curl -fsSL "$RAW_BASE/$tag/.env.example" -o "$config_dir/.env"
+        $wrap cp "$config_dir/.env.example" "$config_dir/.env"
         $wrap chmod 600 "$config_dir/.env"
         env_set "$config_dir" GITRAKZ_IMAGE "$IMAGE_REPO:$tag"
     fi
@@ -713,6 +723,7 @@ main() {
 
 	printf '\ngitrakz is installed in %s mode (pinned to %s).\n\n' "$MODE" "$new_tag"
 	printf '  Config:  %s/.env\n' "$TARGET_CONFIG_DIR"
+	printf '  Example: %s/.env.example\n' "$TARGET_CONFIG_DIR"
 	printf '  Command: %s\n\n' "$INSTALL_PATH"
 	printf 'Edit the .env to change the published port, expose it beyond localhost,\n'
 	printf 'or enable LLM features (set the GITRAKZ_ELELEM_* vars) — all optional.\n\n'

@@ -45,8 +45,10 @@ per-user); force it with `--user` or `--system`. Either way the installer:
 
 - pins the stack to the latest **release tag** — never `:latest` on the user's
   machine;
-- writes `<config>/docker-compose.yml` and an owner-only (`0600`)
-  `<config>/.env` — `~/.config/gitrakz` per-user, `/etc/gitrakz` system-wide;
+- writes `<config>/docker-compose.yml`, refreshes the visible
+  `<config>/.env.example`, and creates the owner-only (`0600`) `<config>/.env`
+  from that template only when it is missing — `~/.config/gitrakz` per-user,
+  `/etc/gitrakz` system-wide;
 - installs the `gitrakz` command (`~/.local/bin` per-user, `/usr/local/bin`
   system-wide);
 - pulls the pinned image;
@@ -63,7 +65,7 @@ gitrakz start      # tracks your own activity by default
 ### Wrapper commands
 
 ```
-gitrakz setup      # create ~/.config/gitrakz (compose + .env) without replacing config
+gitrakz setup      # refresh compose + .env.example; create .env only if missing
 gitrakz start      # inject GH_TOKEN from `gh auth token`, pull, and start
 gitrakz stop       # stop the stack
 gitrakz status     # container state
@@ -108,7 +110,9 @@ docker compose --project-directory ~/.config/gitrakz \
 ## Configuration — edit ~/.config/gitrakz/.env
 
 All configuration is environment variables. Edit `~/.config/gitrakz/.env` and re-run
-`gitrakz start`. Everything has a sane default.
+`gitrakz start`. The installer and `gitrakz setup` refresh the adjacent
+`.env.example` for newly introduced settings without replacing `.env`. Everything
+has a sane default.
 
 | Variable | Default | What it does |
 |---|---|---|

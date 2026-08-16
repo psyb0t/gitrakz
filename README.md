@@ -75,9 +75,12 @@ GitHub CLI for you if it is missing; the per-user install expects `gh` to be
 present already.
 
 Either way it pins the local stack to the latest release tag (never `:latest` on
-your machine) and drops `docker-compose.yml` plus an owner-only `.env`. The mode
-is chosen from who runs it — root gives system-wide, otherwise per-user — and you
-can force it with `--user` or `--system`. No source checkout required.
+your machine) and drops `docker-compose.yml`, a visible `.env.example`, and an
+owner-only `.env` copied from that example on first install. Later installs and
+upgrades refresh `.env.example` but leave your `.env` alone, apart from its image
+pin. The mode is chosen from who runs it — root gives system-wide, otherwise
+per-user — and you can force it with `--user` or `--system`. No source checkout
+required.
 
 Authenticate GitHub once — the wrapper reads a token from it — then start it. It
 tracks *your own* activity by default:
@@ -90,7 +93,7 @@ gitrakz start
 Open <http://127.0.0.1:8080>. The rest is deliberately boring:
 
 ```bash
-gitrakz setup            # recreate the config (compose + .env) without clobbering it
+gitrakz setup            # refresh compose + .env.example; creates .env only if missing
 gitrakz status
 gitrakz logs -f
 gitrakz stop
@@ -101,7 +104,8 @@ gitrakz uninstall        # remove the command; asks before deleting your data
 ```
 
 Configuration lives in `~/.config/gitrakz/.env` (or `/etc/gitrakz/.env` for a
-system-wide install). SQLite state stays in Docker's named `gitrakz-data`
+system-wide install); its current reference is always beside it as
+`.env.example`. SQLite state stays in Docker's named `gitrakz-data`
 volume. Every `gitrakz upgrade` writes a snapshot named
 `YYYYMMDDHHMMSS.tar.gz` under the install directory's `backups/` folder and
 keeps the newest three. `gitrakz restore <backup.tar.gz>` validates the archive,
@@ -123,7 +127,7 @@ the container with it):
 docker run --rm -p 8080:8080 \
   -e GH_TOKEN="$(gh auth token)" \
   -v gitrakz-data:/data \
-  psyb0t/gitrakz:v0.6.2 run          # pin a release tag, not :latest
+  psyb0t/gitrakz:v0.6.3 run          # pin a release tag, not :latest
 ```
 
 Add any `-e GITRAKZ_*` from the [Configuration](#configuration) table. Or run
