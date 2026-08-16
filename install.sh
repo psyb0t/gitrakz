@@ -5,7 +5,7 @@ set -euo pipefail
 #
 #   Per-user (no root) — installs into your home, for the current user only:
 #     curl -fsSL https://raw.githubusercontent.com/psyb0t/gitrakz/main/install.sh | bash
-#     command -> ~/.local/bin/gitrakz, config -> ~/.gitrakz
+#     command -> ~/.local/bin/gitrakz, config -> ~/.config/gitrakz
 #
 #   System-wide (root) — one shared stack any docker-group user can drive:
 #     curl -fsSL https://raw.githubusercontent.com/psyb0t/gitrakz/main/install.sh | sudo bash
@@ -19,7 +19,7 @@ readonly INSTALL_LOG_FILE="/tmp/gitrakz-install.log"
 readonly SYSTEM_INSTALL_PATH="/usr/local/bin/gitrakz"
 readonly SYSTEM_CONFIG_DIR="/etc/gitrakz"
 readonly WRAPPER_MARKER="gitrakz-managed-command"
-readonly CONFIG_DIRECTORY_NAME=".gitrakz"
+readonly CONFIG_DIRECTORY_NAME="gitrakz"
 # shellcheck disable=SC2016  # deliberately literal: $HOME/$PATH must land in the rc file unexpanded
 readonly USER_PATH_SNIPPET='export PATH="$HOME/.local/bin:$PATH"'
 readonly IMAGE_REPO="psyb0t/gitrakz"
@@ -64,7 +64,7 @@ resolve_mode() {
 		((EUID != 0)) ||
 			fail "the per-user install must not run as root — run it as your normal account, or use --system"
 		INSTALL_PATH="$HOME/.local/bin/gitrakz"
-		TARGET_CONFIG_DIR="$HOME/$CONFIG_DIRECTORY_NAME"
+		TARGET_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$CONFIG_DIRECTORY_NAME"
 		;;
 	*)
 		fail "unknown mode: $MODE"
@@ -235,7 +235,7 @@ write_command() {
 # gitrakz-managed-command
 set -euo pipefail
 
-readonly CONFIG_DIRECTORY_NAME=".gitrakz"
+readonly CONFIG_DIRECTORY_NAME="gitrakz"
 readonly SYSTEM_CONFIG_DIR="/etc/gitrakz"
 readonly IMAGE_REPO="psyb0t/gitrakz"
 readonly ROLLING_IMAGE="psyb0t/gitrakz:latest"
@@ -274,13 +274,13 @@ Commands:
              instead of the pinned release tag. Handy for testing main.
 
 Config location: $GITRAKZ_HOME if set, else /etc/gitrakz for a system-wide
-install, else ~/.gitrakz for a per-user install.
+install, else ~/.config/gitrakz for a per-user install.
 EOF
 }
 
 # config_directory resolves where the stack config lives: an explicit
 # GITRAKZ_HOME wins; otherwise a system-wide install (/etc/gitrakz) is preferred
-# when present, falling back to the per-user ~/.gitrakz.
+# when present, falling back to the per-user ~/.config/gitrakz.
 config_directory() {
     local config_dir
     if [[ -n "${GITRAKZ_HOME:-}" ]]; then
@@ -288,7 +288,7 @@ config_directory() {
     elif [[ -f "$SYSTEM_CONFIG_DIR/docker-compose.yml" ]]; then
         config_dir="$SYSTEM_CONFIG_DIR"
     else
-        config_dir="$HOME/$CONFIG_DIRECTORY_NAME"
+        config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/$CONFIG_DIRECTORY_NAME"
     fi
 
     [[ "$config_dir" = /* ]] || fail "GITRAKZ_HOME must be an absolute path"

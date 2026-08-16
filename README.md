@@ -60,7 +60,7 @@ curl -fsSL https://raw.githubusercontent.com/psyb0t/gitrakz/main/install.sh | ba
 ```
 
 That drops the `gitrakz` command into `~/.local/bin` and the config into
-`~/.gitrakz`. If `~/.local/bin` is not on your `PATH`, the installer prints the
+`~/.config/gitrakz`. If `~/.local/bin` is not on your `PATH`, the installer prints the
 exact one-liner to add it (for both bash and zsh).
 
 System-wide — one shared stack any user in the `docker` group can drive:
@@ -98,7 +98,7 @@ gitrakz upgrade --rolling # test the moving :latest built from main, just this o
 gitrakz uninstall        # remove the command; asks before deleting your data
 ```
 
-Configuration lives in `~/.gitrakz/.env` (or `/etc/gitrakz/.env` for a
+Configuration lives in `~/.config/gitrakz/.env` (or `/etc/gitrakz/.env` for a
 system-wide install) — **edit it right after install** to
 change the published port (`GITRAKZ_PUBLISH_PORT`), expose it beyond localhost
 (`GITRAKZ_PUBLISH_ADDR`), set an API bearer token (`GITRAKZ_AUTH_TOKEN`), track a
@@ -124,8 +124,8 @@ same pinned stack straight from the compose file the installer wrote:
 
 ```bash
 export GH_TOKEN="$(gh auth token)"
-docker compose --project-directory ~/.gitrakz \
-  --env-file ~/.gitrakz/.env -f ~/.gitrakz/docker-compose.yml up -d
+docker compose --project-directory ~/.config/gitrakz \
+  --env-file ~/.config/gitrakz/.env -f ~/.config/gitrakz/docker-compose.yml up -d
 ```
 
 ### From source

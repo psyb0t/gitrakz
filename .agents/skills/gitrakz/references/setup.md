@@ -10,39 +10,60 @@ gitrakz shells out to the GitHub CLI (`gh`) inside the container and
 authenticates with a `GH_TOKEN` environment variable. **The token is never
 written to `.env` or any config file.** The wrapper captures it live with
 `gh auth token`; a direct run expects it in the environment. So the host needs
-`gh` installed and authenticated (`gh auth login`) — the installer installs `gh`
-for you if it is missing.
+`gh` installed and authenticated (`gh auth login`) — a system-wide (root)
+install installs `gh` for you if it is missing, while a per-user install expects
+it already present.
 
 `GH_TOKEN` is distinct from `GITRAKZ_AUTH_TOKEN`, which is an optional bearer
 token protecting gitrakz's own `/api` (see Configuration).
 
 ## Install (recommended)
 
+**Download the installer and read it before running it — never pipe `curl`
+straight into a shell.** Confirm it only fetches the pinned image, writes the
+config files listed below, and installs the `gitrakz` command — then run it.
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/psyb0t/gitrakz/main/install.sh | sudo bash
+# 1. Download (do not pipe curl into a shell).
+curl -fsSL https://raw.githubusercontent.com/psyb0t/gitrakz/main/install.sh -o gitrakz-install.sh
+
+# 2. Inspect — read the whole thing.
+less gitrakz-install.sh
+
+# 3a. Per-user install (no root): command -> ~/.local/bin, config ->
+#     ~/.config/gitrakz, just for the current user. Expects `gh` already present.
+bash gitrakz-install.sh
+
+# 3b. Or system-wide: command -> /usr/local/bin, config -> /etc/gitrakz
+#     (root-owned, readable by the `docker` group so any docker-group user
+#     drives the one shared stack). This mode also installs `gh` if missing.
+sudo bash gitrakz-install.sh --system
 ```
 
-The installer:
+The mode auto-detects from who runs it (root → system-wide, otherwise
+per-user); force it with `--user` or `--system`. Either way the installer:
 
-- installs the GitHub CLI (`gh`) if it is missing;
 - pins the stack to the latest **release tag** — never `:latest` on the user's
   machine;
-- writes `~/.gitrakz/docker-compose.yml` and an owner-only (`0600`)
-  `~/.gitrakz/.env`;
-- installs the `gitrakz` command at `/usr/local/bin/gitrakz`;
-- pulls the pinned image.
+- writes `<config>/docker-compose.yml` and an owner-only (`0600`)
+  `<config>/.env` — `~/.config/gitrakz` per-user, `/etc/gitrakz` system-wide;
+- installs the `gitrakz` command (`~/.local/bin` per-user, `/usr/local/bin`
+  system-wide);
+- pulls the pinned image;
+- prints the exact `PATH` one-liner (bash + zsh) when a per-user install finds
+  `~/.local/bin` off `PATH`.
 
 Then:
 
 ```bash
-gh auth login      # once
+gh auth login      # once (a per-user install expects gh already installed)
 gitrakz start      # tracks your own activity by default
 ```
 
 ### Wrapper commands
 
 ```
-gitrakz setup      # create ~/.gitrakz (compose + .env) without replacing config
+gitrakz setup      # create ~/.config/gitrakz (compose + .env) without replacing config
 gitrakz start      # inject GH_TOKEN from `gh auth token`, pull, and start
 gitrakz stop       # stop the stack
 gitrakz status     # container state
@@ -55,18 +76,19 @@ gitrakz uninstall  # stop, remove the command, ask before deleting your data
   `:latest` image (built from `main`) for that one invocation only — the pinned
   release in `.env` is left untouched. Use it to try unreleased changes.
 - `upgrade` deletes the previous pinned image on success so images do not pile
-  up. `uninstall` only deletes `~/.gitrakz` and the data volume if you say yes.
+  up. `uninstall` only deletes `~/.config/gitrakz` and the data volume if you say yes.
 
 ## Run it with Docker directly
 
 The wrapper is just a guardrail around Docker. Pass the token through — it is the
-only auth gitrakz needs:
+only auth gitrakz needs. Pin a released tag (not `:latest`) for a reproducible
+run:
 
 ```bash
 docker run --rm -p 8080:8080 \
   -e GH_TOKEN="$(gh auth token)" \
   -v gitrakz-data:/data \
-  psyb0t/gitrakz:latest run
+  psyb0t/gitrakz:vX.Y.Z run
 ```
 
 Add any `-e GITRAKZ_*` from the table below. Or run the installer's compose file
@@ -74,13 +96,13 @@ directly:
 
 ```bash
 export GH_TOKEN="$(gh auth token)"
-docker compose --project-directory ~/.gitrakz \
-  --env-file ~/.gitrakz/.env -f ~/.gitrakz/docker-compose.yml up -d
+docker compose --project-directory ~/.config/gitrakz \
+  --env-file ~/.config/gitrakz/.env -f ~/.config/gitrakz/docker-compose.yml up -d
 ```
 
-## Configuration — edit ~/.gitrakz/.env
+## Configuration — edit ~/.config/gitrakz/.env
 
-All configuration is environment variables. Edit `~/.gitrakz/.env` and re-run
+All configuration is environment variables. Edit `~/.config/gitrakz/.env` and re-run
 `gitrakz start`. Everything has a sane default.
 
 | Variable | Default | What it does |

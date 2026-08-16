@@ -12,7 +12,7 @@ metadata:
 permissions:
   network: "Outbound HTTP only to the user-configured GITRAKZ_URL (the local gitrakz server). gitrakz itself shells out to the GitHub CLI and reaches api.github.com to sync activity; point it only at a gitrakz instance the user runs."
   shell: "bash, curl, and the docker / gitrakz-wrapper commands shown in references/setup.md, for user-requested setup or verification. gitrakz reads its GitHub token from `gh auth token`."
-  filesystem: "Normal use reads GITRAKZ_URL and GITRAKZ_AUTH_TOKEN from the environment. Setup writes only the owner-only ~/.gitrakz/.env and docker-compose.yml."
+  filesystem: "Normal use reads GITRAKZ_URL and GITRAKZ_AUTH_TOKEN from the environment. Setup writes only the owner-only ~/.config/gitrakz/.env and docker-compose.yml."
 ---
 
 # gitrakz
@@ -109,5 +109,5 @@ and response shapes.
 ## Setup
 
 Everything about installing, running with Docker directly, configuring
-`~/.gitrakz/.env`, and the `GH_TOKEN` auth model lives in
+`~/.config/gitrakz/.env`, and the `GH_TOKEN` auth model lives in
 [references/setup.md](references/setup.md).
