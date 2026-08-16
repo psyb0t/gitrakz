@@ -136,7 +136,7 @@ Initial release.
   three built-in templates (activity summary, commits per repo, work-sessions
   timesheet), seeded on boot; custom templates are CRUD-managed, with built-ins
   clone-on-edit, and can be LLM-composed from a description.
-- **Transforms + display blocks** — eight deterministic transform primitives
+- **Transforms + display blocks** — seven deterministic transform primitives
   plus an LLM-backed `describe-work` step cached in the DB by prompt/config
   version; eight typed display blocks with one renderer each.
 - **Exports** — CSV, PDF and JSON of any document or template run.

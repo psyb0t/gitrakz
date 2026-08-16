@@ -90,6 +90,7 @@ gitrakz start
 Open <http://127.0.0.1:8080>. The rest is deliberately boring:
 
 ```bash
+gitrakz setup            # recreate the config (compose + .env) without clobbering it
 gitrakz status
 gitrakz logs -f
 gitrakz stop
@@ -116,7 +117,7 @@ the container with it):
 docker run --rm -p 8080:8080 \
   -e GH_TOKEN="$(gh auth token)" \
   -v gitrakz-data:/data \
-  psyb0t/gitrakz:latest run
+  psyb0t/gitrakz:v0.6.0 run          # pin a release tag, not :latest
 ```
 
 Add any `-e GITRAKZ_*` from the [Configuration](#configuration) table. Or run the
