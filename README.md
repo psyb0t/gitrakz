@@ -53,14 +53,31 @@ gh CLI ──sync──▶ SQLite (events) ──▶ timeline / sessions
 
 ### Install (recommended)
 
+Per-user (no root) — installs into your home, just for you:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/psyb0t/gitrakz/main/install.sh | bash
+```
+
+That drops the `gitrakz` command into `~/.local/bin` and the config into
+`~/.gitrakz`. If `~/.local/bin` is not on your `PATH`, the installer prints the
+exact one-liner to add it (for both bash and zsh).
+
+System-wide — one shared stack any user in the `docker` group can drive:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/psyb0t/gitrakz/main/install.sh | sudo bash
 ```
 
-That installs the GitHub CLI if it is missing, pins the local stack to the
-latest release tag (never `:latest` on your machine), drops `docker-compose.yml`
-and an owner-only `.env` into `~/.gitrakz`, and installs the `gitrakz` command.
-No source checkout required.
+That puts the command in `/usr/local/bin` and the config in `/etc/gitrakz`
+(root-owned, readable by the `docker` group). Running as root also installs the
+GitHub CLI for you if it is missing; the per-user install expects `gh` to be
+present already.
+
+Either way it pins the local stack to the latest release tag (never `:latest` on
+your machine) and drops `docker-compose.yml` plus an owner-only `.env`. The mode
+is chosen from who runs it — root gives system-wide, otherwise per-user — and you
+can force it with `--user` or `--system`. No source checkout required.
 
 Authenticate GitHub once — the wrapper reads a token from it — then start it. It
 tracks *your own* activity by default:
@@ -81,7 +98,8 @@ gitrakz upgrade --rolling # test the moving :latest built from main, just this o
 gitrakz uninstall        # remove the command; asks before deleting your data
 ```
 
-Configuration lives in `~/.gitrakz/.env` — **edit it right after install** to
+Configuration lives in `~/.gitrakz/.env` (or `/etc/gitrakz/.env` for a
+system-wide install) — **edit it right after install** to
 change the published port (`GITRAKZ_PUBLISH_PORT`), expose it beyond localhost
 (`GITRAKZ_PUBLISH_ADDR`), set an API bearer token (`GITRAKZ_AUTH_TOKEN`), track a
 different user (`GITRAKZ_GH_USER`), or enable the optional LLM features
