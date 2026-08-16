@@ -4,6 +4,29 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.6.0 — 2026-08-16
+
+- **Installer: per-user and system-wide modes.** `install.sh` now installs
+  either per-user (no root → `~/.local/bin` + `~/.config/gitrakz`) or
+  system-wide (sudo → `/usr/local/bin` + `/etc/gitrakz`, root-owned and readable
+  by the `docker` group so any docker-group user drives the one shared stack).
+  The mode auto-detects from `EUID`, with `--user` / `--system` to force it. A
+  per-user install that finds `~/.local/bin` off `PATH` prints the exact
+  bash/zsh one-liner to add it. Only the system-wide install auto-installs the
+  GitHub CLI; a per-user install expects `gh` already present. Installer output
+  is now plain prose, not JSON.
+- **Breaking: per-user config moved to `~/.config/gitrakz`** (XDG,
+  `$XDG_CONFIG_HOME`-aware) from `~/.gitrakz`. Re-running the installer writes
+  the new location; an existing `~/.gitrakz` is left untouched — move it, or set
+  `GITRAKZ_HOME=~/.gitrakz` to keep using it.
+- **Agent skill install-safety.** The `.agents/` skill now tells the model to
+  download and inspect `install.sh` before running it (never `curl | bash`),
+  documents both install modes plus the direct `docker run` path, and uses the
+  new config paths.
+- CI: image-scan findings are now reported to the Security tab instead of
+  failing the release (`scan_fail_build: false`), so the ClawHub publish that
+  depends on the image build still runs.
+
 ## v0.5.0 — 2026-08-14
 
 A one-command installer, a Docker Compose stack, and an agent skill.
