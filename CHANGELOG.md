@@ -4,6 +4,12 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.7.1 — 2026-08-16
+
+- **Build:** the embedded SPA now emits stable, unhashed asset filenames
+  (`index.js`, `index.css`) so rebuilds are clean diffs instead of add-and-
+  delete churn. No runtime, API, or configuration change.
+
 ## v0.7.0 — 2026-08-16
 
 - **LLM model/reasoning/temperature moved to runtime settings.** These are no

@@ -22,6 +22,16 @@ export default defineConfig({
   build: {
     outDir: HTTP_SERVER_WEB_DIST,
     emptyOutDir: true,
+    // Stable, unhashed asset names. The SPA ships embedded in the Go binary,
+    // so content-hash cache-busting buys nothing, and stable names keep the
+    // committed dist a clean modify across rebuilds rather than add + delete.
+    rollupOptions: {
+      output: {
+        entryFileNames: "assets/[name].js",
+        chunkFileNames: "assets/[name].js",
+        assetFileNames: "assets/[name].[ext]",
+      },
+    },
   },
   server: {
     proxy: {
