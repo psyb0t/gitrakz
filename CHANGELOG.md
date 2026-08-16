@@ -4,6 +4,11 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.7.2 — 2026-08-17
+
+- **Docs:** tightened the `.env.example` `GH_TOKEN` comment to state how the
+  token is supplied, dropping the surrounding narration.
+
 ## v0.7.1 — 2026-08-16
 
 - **Build:** the embedded SPA now emits stable, unhashed asset filenames

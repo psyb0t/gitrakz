@@ -128,7 +128,7 @@ the container with it):
 docker run --rm -p 8080:8080 \
   -e GH_TOKEN="$(gh auth token)" \
   -v gitrakz-data:/data \
-  psyb0t/gitrakz:v0.7.1 run          # pin a release tag, not :latest
+  psyb0t/gitrakz:v0.7.2 run          # pin a release tag, not :latest
 ```
 
 Add any `-e GITRAKZ_*` from the [Configuration](#configuration) table. Or run
