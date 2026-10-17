@@ -31,3 +31,6 @@ coverage-percent.txt
 web/node_modules
 web/.vite
 .wave6/
+
+# Review receipt for the local release script.
+git-update.sh.debot
