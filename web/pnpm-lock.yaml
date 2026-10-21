@@ -10,7 +10,7 @@ importers:
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: 7.3.0
-        version: 7.3.0(svelte@5.56.9)(vite@8.2.1)
+        version: 7.3.0(svelte@5.56.9)(vite@8.2.4)
       '@tsconfig/svelte':
         specifier: 5.0.8
         version: 5.0.8
@@ -24,8 +24,8 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
       vite:
-        specifier: 8.2.1
-        version: 8.2.1
+        specifier: 8.2.4
+        version: 8.2.4
 
 packages:
 
@@ -371,13 +371,13 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  vite@8.2.1:
-    resolution: {integrity: sha512-EU/eS7BH3XROHh2YnBefjM6DBKA6ZeMZEYQbj7NLWg5wHYlhB8B/Mayd5XsgWq+NFYccDOTemRpdETWR6Ka/lw==}
+  vite@8.2.4:
+    resolution: {integrity: sha512-lfauXnrf2x0p+UoA+wXh0dgFWnUjCyG6Js95KBkgaCwUU9k0DAHI4W6Q0WCx+h+5g+Alce1y4Zi2QjjK0UvGBw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
       '@types/node': ^20.19.0 || >=22.12.0
-      '@vitejs/devtools': ^0.4.0
+      '@vitejs/devtools': ^0.4.0 || ^0.5.0
       esbuild: ^0.27.0 || ^0.28.0
       jiti: '>=1.21.0'
       less: ^4.0.0
@@ -498,14 +498,14 @@ snapshots:
 
   '@sveltejs/load-config@0.2.3': {}
 
-  '@sveltejs/vite-plugin-svelte@7.3.0(svelte@5.56.9)(vite@8.2.1)':
+  '@sveltejs/vite-plugin-svelte@7.3.0(svelte@5.56.9)(vite@8.2.4)':
     dependencies:
       deepmerge: 4.3.1
       magic-string: 1.1.1
       obug: 2.1.4
       svelte: 5.56.9
-      vite: 8.2.1
-      vitefu: 1.1.3(vite@8.2.1)
+      vite: 8.2.4
+      vitefu: 1.1.3(vite@8.2.4)
 
   '@tsconfig/svelte@5.0.8': {}
 
@@ -692,7 +692,7 @@ snapshots:
 
   typescript@5.9.3: {}
 
-  vite@8.2.1:
+  vite@8.2.4:
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.5
@@ -702,8 +702,8 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
 
-  vitefu@1.1.3(vite@8.2.1):
+  vitefu@1.1.3(vite@8.2.4):
     optionalDependencies:
-      vite: 8.2.1
+      vite: 8.2.4
 
   zimmerframe@1.1.4: {}
