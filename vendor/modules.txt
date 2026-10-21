@@ -989,8 +989,8 @@ github.com/psyb0t/ctxscope
 github.com/psyb0t/elelem
 github.com/psyb0t/elelem/drivers/anthropic
 github.com/psyb0t/elelem/drivers/openai
-# github.com/psyb0t/goenv v1.0.3
-## explicit; go 1.25
+# github.com/psyb0t/goenv v1.0.10
+## explicit; go 1.26
 github.com/psyb0t/goenv
 # github.com/psyb0t/gofindimpl v1.0.0
 ## explicit; go 1.24.6
